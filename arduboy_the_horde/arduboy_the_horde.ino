@@ -1,5 +1,5 @@
 #include <Arduboy2.h>
-#include <LinkedList.h>
+#include "LinkedList-master/LinkedList.h"
 
 Arduboy2 arduboy;
 
@@ -224,6 +224,31 @@ void runShots() {
   }
 }
 
+// Reset game values
+void restartGame() {
+  // Remove all enemies
+  enemies.clear();
+  
+  // Reset player values
+  player.x = WIDTH / 2;
+  player.y = HEIGHT / 2;
+  player.mod = 60 / fps;
+    
+  player.mov_itter = 0;
+  player.PSPEED = 0;
+  
+  player.wave = 1;
+  player.total_shots = 0;
+  player.kills = 0;
+  
+  // Start game
+  Serial.println("Restart Enemies: " + (String)enemies.size() + " Restart Waves: " + (String)player.wave);
+  generateWave();
+  
+  lose = false;
+  
+}
+
 void setup() {
   Serial.begin(115200);
   
@@ -356,6 +381,11 @@ void loop() {
     arduboy.println("Waves Survived: " + (String)player.wave);
     arduboy.println("Kills: " + (String)player.kills);
     arduboy.println("Accuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
+    
+    // Restart ?
+    if (arduboy.pressed(B_BUTTON)) {
+      restartGame();
+    }
   }
 
   arduboy.display();
