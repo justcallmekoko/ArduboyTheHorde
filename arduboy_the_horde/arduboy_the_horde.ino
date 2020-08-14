@@ -13,20 +13,30 @@ Arduboy2 arduboy;
 
 #define BULLET_SPEED 4
 #define ENEMY_MIN_SPEED 5 // Lower is faster
-#define ENEMY_MAX_SPEED 3
+#define ENEMY_MAX_SPEED 4
 
-int wave = 1;
-int total_shots = 0;
-int kills = 0;
-
-int x = WIDTH / 2;
-int y = HEIGHT / 2;
-int mod = 60 / fps; // Consistent movement speed even with fps changes
+//int x = WIDTH / 2;
+//int y = HEIGHT / 2;
+//int mod = 60 / fps; // Consistent movement speed even with fps changes
 
 String dir = "R";
 
 bool just_pressed = false;
 bool lose = false;
+
+class Player {
+  public:
+    int x = WIDTH / 2;
+    int y = HEIGHT / 2;
+    int mod = 60 / fps;
+    
+    int mov_itter = 0;
+    int PSPEED = 0; // Lower is faster
+    
+    int wave = 1;
+    int total_shots = 0;
+    int kills = 0;
+};
 
 class Enemy {
   public:
@@ -46,23 +56,38 @@ class Shot {
     int y_mod = 0;
 };
 
+// Create lists for storing enemies and shots
 LinkedList<Shot> shots = LinkedList<Shot>();
 LinkedList<Enemy> enemies = LinkedList<Enemy>();
 
+// Create player
+Player player;
+
+// Check if enemy hit player
 bool checkCollision() {
   for (int i = 0; i < enemies.size(); i++) {
-    if ((enemies.get(i).x == x) &&
-        (enemies.get(i).y == y))
+    //if ((enemies.get(i).x == player.x) &&
+    //    (enemies.get(i).y == player.y))
+    //  lose = true;
+    
+    // Calculate distance
+    float distance = sqrt(sq(player.x - enemies.get(i).x) + sq(player.y - enemies.get(i).y));
+    
+    // Check if distance is less than the radius of the player plus the radius of the enemy
+    // Player dies if enemy circle touches player circle
+    if (distance <= circle_width * 2)
       lose = true;
   }
 }
 
+
+// Spawn enemies for the current wave
 void generateWave() {
-  for (int i = 0; i < wave; i++) {
+  for (int i = 0; i < player.wave; i++) {
     Enemy test_enemy;
 
-    int spawn_x = x;
-    int spawn_y = y;
+    int spawn_x = player.x;
+    int spawn_y = player.y;
 
     while ((spawn_x > X_MIN) &&
            (spawn_x < X_MAX) &&
@@ -75,15 +100,16 @@ void generateWave() {
     test_enemy.x = spawn_x;
     test_enemy.y = spawn_y;
 
-    test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED, ENEMY_MIN_SPEED);
+    test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
 
     Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
     enemies.add(test_enemy);
   }
-  wave++;
+  player.wave++;
 }
 
+// Work enemy movement
 void runEnemies() {
   for (int i = 0; i < enemies.size(); i++) {
     if (!enemies.get(i).dead) {
@@ -99,14 +125,14 @@ void runEnemies() {
         enemy.mov_itter = 0;
 
         // Move enemy closer to player
-        if (enemy.x < x)
+        if (enemy.x < player.x)
           enemy.x++;
-        if (enemy.x > x)
+        if (enemy.x > player.x)
           enemy.x--;
 
-        if (enemy.y < y)
+        if (enemy.y < player.y)
           enemy.y++;
-        if (enemy.y > y)
+        if (enemy.y > player.y)
           enemy.y--;
 
       }
@@ -166,7 +192,7 @@ void runShots() {
         enemies.get(z).dead = true;
         enemies.remove(z);
         Serial.println("Enemies remaining: " + (String)enemies.size());
-        kills++;
+        player.kills++;
         continue;
       }
     }
@@ -179,20 +205,10 @@ void setup() {
   arduboy.begin();
   arduboy.initRandomSeed();
   arduboy.setFrameRate(fps);
-  arduboy.drawCircle(x, y, circle_width, WHITE);
+  arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
   arduboy.display();
 
   generateWave();
-  /*
-  for (int i = 0; i < 3; i++) {
-    Enemy test_enemy;
-
-    test_enemy.x = random(X_MIN + circle_width, X_MAX - circle_width);
-    test_enemy.y = random(Y_MIN + circle_width, Y_MAX - circle_width);
-
-    enemies.add(test_enemy);
-  }
-  */
 }
 
 void loop() {
@@ -203,40 +219,35 @@ void loop() {
     // Shoot
     if (arduboy.pressed(B_BUTTON)) {
       if (!just_pressed) {
-        //Serial.println("Shoot direction: " + dir);
         just_pressed = true;
-        total_shots++;
-  
-        //LinkedList<int> *shot = new LinkedList<int>();
-        //shot.add(x);
-        //shot.add(y);
+        player.total_shots++;
   
         Shot shot;
         
         if (dir == "R") {
-          shot.x = x;
-          shot.y = y;
+          shot.x = player.x;
+          shot.y = player.y;
           shot.x_mod = BULLET_SPEED;
           shot.y_mod = 0;
           shots.add(shot);
         }
         else if (dir == "L") {
-          shot.x = x;
-          shot.y = y;
+          shot.x = player.x;
+          shot.y = player.y;
           shot.x_mod = -BULLET_SPEED;
           shot.y_mod = 0;
           shots.add(shot);
         }
         else if (dir == "U") {
-          shot.x = x;
-          shot.y = y;
+          shot.x = player.x;
+          shot.y = player.y;
           shot.x_mod = 0;
           shot.y_mod = -BULLET_SPEED;
           shots.add(shot);
         }
         else if (dir == "D") {
-          shot.x = x;
-          shot.y = y;
+          shot.x = player.x;
+          shot.y = player.y;
           shot.x_mod = 0;
           shot.y_mod = BULLET_SPEED;
           shots.add(shot);
@@ -248,48 +259,53 @@ void loop() {
   
     // Sprint
     if (arduboy.pressed(A_BUTTON))
-      mod = (60 / fps) * 2;
+      player.mod = (60 / fps) * 2;
     else
-      mod = 60 / fps;
+      player.mod = 60 / fps;
+      
+    player.mov_itter++;
   
     // Right
-    if (arduboy.pressed(RIGHT_BUTTON) && (x < X_MAX)) {
+    if ((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX) && (player.mov_itter >= player.PSPEED)) {
+      player.mov_itter = 0;
       dir = "R";
-      if (x + (1 * mod) < X_MAX)
-        x = x + (1 * mod);
+      if (player.x + (1 * player.mod) < X_MAX)
+        player.x = player.x + (1 * player.mod);
       else
-        x++;
+        player.x++;
     }
   
     // Left
-    if (arduboy.pressed(LEFT_BUTTON) && (x > X_MIN)) {
+    if ((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN) && (player.mov_itter >= player.PSPEED)) {
+      player.mov_itter = 0;
       dir = "L";
-      if (x - (1 * mod) > X_MIN)
-        x = x - (1 * mod);
+      if (player.x - (1 * player.mod) > X_MIN)
+        player.x = player.x - (1 * player.mod);
       else
-        x--;
+        player.x--;
     }
   
     // UP
-    if (arduboy.pressed(UP_BUTTON) && (y > Y_MIN)) {
+    if ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN) && (player.mov_itter >= player.PSPEED)) {
+      player.mov_itter = 0;
       dir = "U";
-      if (y - (1 * mod) > Y_MIN)
-        y = y - (1 * mod);
+      if (player.y - (1 * player.mod) > Y_MIN)
+        player.y = player.y - (1 * player.mod);
       else
-        y--;
+        player.y--;
     }
   
     // Down
-    if (arduboy.pressed(DOWN_BUTTON) && (y < Y_MAX)) {
+    if ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX) && (player.mov_itter >= player.PSPEED)) {
+      player.mov_itter = 0;
       dir = "D";
-      if (y + (1 * mod) < Y_MAX)
-        y = y + (1 * mod);
+      if (player.y + (1 * player.mod) < Y_MAX)
+        player.y = player.y + (1 * player.mod);
       else
-        y++;
+        player.y++;
     }
   
-    //Serial.println("x: " + (String)x + " y: " + (String)y);
-  
+    // Create new wave if all enemies defeated
     if (enemies.size() <= 0) {
       generateWave();
     }
@@ -297,7 +313,7 @@ void loop() {
     arduboy.clear();
   
     // Draw the player
-    arduboy.drawCircle(x, y, circle_width, WHITE);
+    arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
   
     // Draw enemies
     runEnemies();
@@ -310,9 +326,9 @@ void loop() {
     arduboy.clear();
 
     arduboy.println("You lose");
-    arduboy.println("Waves Survived: " + (String)wave);
-    arduboy.println("Kills: " + (String)kills);
-    arduboy.println("Accuracy: " + (String)(((float)kills * 100.0) / (float)total_shots) + "%");
+    arduboy.println("Waves Survived: " + (String)player.wave);
+    arduboy.println("Kills: " + (String)player.kills);
+    arduboy.println("Accuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
   }
 
   arduboy.display();
