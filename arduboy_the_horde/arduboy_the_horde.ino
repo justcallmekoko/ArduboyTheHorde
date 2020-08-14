@@ -6,10 +6,11 @@ Arduboy2 arduboy;
 #define fps 60
 #define circle_width 2
 #define SPAWN_DIST 20
+#define STATUS_BAR 9
 #define X_MAX (WIDTH - circle_width - 1)
 #define X_MIN circle_width
 #define Y_MAX (HEIGHT - circle_width - 1)
-#define Y_MIN (circle_width + 1)
+#define Y_MIN (circle_width + 1 + STATUS_BAR)
 
 #define BULLET_SPEED 4
 #define ENEMY_MIN_SPEED 5 // Lower is faster
@@ -23,6 +24,9 @@ String dir = "R";
 
 bool just_pressed = false;
 bool lose = false;
+int current_text_size = 1;
+uint8_t current_text_color = WHITE;
+uint8_t current_background = BLACK;
 
 class Player {
   public:
@@ -62,6 +66,27 @@ LinkedList<Enemy> enemies = LinkedList<Enemy>();
 
 // Create player
 Player player;
+
+void drawStatusBar() {
+  arduboy.fillRect(0, 0, WIDTH, STATUS_BAR, WHITE);
+  
+  // Setup text param
+  arduboy.setTextSize(1);
+  arduboy.setTextColor(BLACK);
+  arduboy.setTextBackground(WHITE);
+  
+  // Draw status bar text
+  arduboy.setCursor(1, 1);
+  arduboy.print("Wave: " + (String)(player.wave - 1));
+  
+  arduboy.setCursor(70, 1);
+  arduboy.print("Alive: " + (String)enemies.size());
+  
+  // Return text param to normal
+  arduboy.setTextSize(current_text_size);
+  arduboy.setTextColor(current_text_color);
+  arduboy.setTextBackground(current_background);
+}
 
 // Check if enemy hit player
 bool checkCollision() {
@@ -321,6 +346,8 @@ void loop() {
     runShots();
   
     checkCollision();
+    
+    drawStatusBar();
   }
   else {
     arduboy.clear();
