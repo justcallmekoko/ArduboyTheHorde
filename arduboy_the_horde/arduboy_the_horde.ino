@@ -1,5 +1,5 @@
 #include <Arduboy2.h>
-#include "LinkedList-master/LinkedList.h"
+#include <LinkedList.h>
 
 Arduboy2 arduboy;
 
