@@ -3,6 +3,8 @@
 
 Arduboy2 arduboy;
 
+#define CHAR_WIDTH 6
+#define CHAR_HEIGHT 8
 #define fps 60
 #define circle_width 2
 #define SPAWN_DIST 20
@@ -16,17 +18,36 @@ Arduboy2 arduboy;
 #define ENEMY_MIN_SPEED 5 // Lower is faster
 #define ENEMY_MAX_SPEED 4
 
-//int x = WIDTH / 2;
-//int y = HEIGHT / 2;
-//int mod = 60 / fps; // Consistent movement speed even with fps changes
-
 String dir = "R";
 
 bool just_pressed = false;
 bool lose = false;
 int current_text_size = 1;
+int menu_index = 0;
 uint8_t current_text_color = WHITE;
 uint8_t current_background = BLACK;
+
+// Run modes
+// 0 - Menu
+// 1 - Game
+// 2 - Lose
+// 3 - SFX
+// 4 - Restart game
+int mode = 0;
+
+struct Menu;
+
+struct MenuNode {
+  String name;
+  int mode;
+};
+
+// Full Menus
+struct Menu {
+  String name;
+  LinkedList<MenuNode>* list;
+  Menu                * parentMenu;
+};
 
 class Player {
   public:
@@ -67,6 +88,12 @@ LinkedList<Enemy> enemies = LinkedList<Enemy>();
 // Create player
 Player player;
 
+// Create main menu
+Menu mainMenu;
+
+// Create lose menu
+Menu loseMenu;
+
 void drawStatusBar() {
   arduboy.fillRect(0, 0, WIDTH, STATUS_BAR, WHITE);
   
@@ -91,17 +118,16 @@ void drawStatusBar() {
 // Check if enemy hit player
 bool checkCollision() {
   for (int i = 0; i < enemies.size(); i++) {
-    //if ((enemies.get(i).x == player.x) &&
-    //    (enemies.get(i).y == player.y))
-    //  lose = true;
     
     // Calculate distance
     float distance = sqrt(sq(player.x - enemies.get(i).x) + sq(player.y - enemies.get(i).y));
     
     // Check if distance is less than the radius of the player plus the radius of the enemy
     // Player dies if enemy circle touches player circle
-    if (distance <= circle_width * 2)
+    if (distance <= circle_width * 2) {
       lose = true;
+      mode = 2;
+    }
   }
 }
 
@@ -114,6 +140,7 @@ void generateWave() {
     int spawn_x = player.x;
     int spawn_y = player.y;
 
+    // Only spawn enemies off screen
     while ((spawn_x > X_MIN) &&
            (spawn_x < X_MAX) &&
            (spawn_y > Y_MIN) &&
@@ -146,7 +173,6 @@ void runEnemies() {
 
       // Check if time for enemy to move
       if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
-        //Serial.println("Moving enemy");
         enemy.mov_itter = 0;
 
         // Move enemy closer to player
@@ -173,9 +199,8 @@ void runEnemies() {
 // Function to move shots and check shot collision
 void runShots() {
   for (int i = 0; i < shots.size(); i++) {
+    
     // Move coordinates based on direction
-    //Serial.println("Got shot: " + (String)shots.get(i).x + ":" + (String)shots.get(i).y);
-
     Shot shot;
     shot.x = shots.get(i).x + shots.get(i).x_mod;
     shot.y = shots.get(i).y + shots.get(i).y_mod;
@@ -184,10 +209,7 @@ void runShots() {
 
     shots.set(i, shot);
 
-    //Serial.println("Shooting shot: " + (String)shots.get(i).x + ":" + (String)shots.get(i).y);
-
     // Check if off screen and if it is, remove from list
-    
     if ((shots.get(i).x < X_MIN) ||
         (shots.get(i).x > X_MAX) ||
         (shots.get(i).y < Y_MIN) ||
@@ -195,14 +217,8 @@ void runShots() {
       shots.remove(i);
       continue;
     }
-    //else {
-      //shots.remove(i);
-      //shots.add(coord);
-      //shots.get(i) = coord;
-    //}
 
     // Draw the shot
-    //Serial.println("Drawing shot...");
     arduboy.drawCircle(shots.get(i).x, shots.get(i).y, 0, WHITE);
 
     // Check enemies
@@ -246,11 +262,72 @@ void restartGame() {
   generateWave();
   
   lose = false;
-  
+  mode = 1;
+}
+
+// Function to add MenuNodes to a menu
+void addNodes(Menu * menu, String name, int mode)
+{
+  menu->list->add(MenuNode{name, mode});
+}
+
+void runMenu(Menu * menu) {
+  // Iterate through menu items
+  for (int i = 0; i < menu->list->size(); i++) {
+
+    // Format text to be printed on screen
+    int num_chars = menu->list->get(i).name.length();
+    int x = (WIDTH / 2) - (num_chars * CHAR_WIDTH / 2);
+    int y = (HEIGHT / 2) - (CHAR_HEIGHT / 2);
+    arduboy.setCursor(x, y + (i * CHAR_HEIGHT) + 20);
+    arduboy.print(menu->list->get(i).name);
+
+    // Draw selector dot next to active menu item
+    if (menu_index == i)
+      arduboy.drawCircle(x - 5, (y + (i * CHAR_HEIGHT)) + (CHAR_HEIGHT / 2) + 19, 1, WHITE);
+  }
+
+  // Cycle Down menu index
+  if (arduboy.justPressed(UP_BUTTON)) {
+    menu_index--;
+    if (menu_index <= 0)
+      menu_index = 0;
+    Serial.println("menu_index: " + (String)menu_index);
+  }
+
+  // Cycle Up menu index
+  if (arduboy.justPressed(DOWN_BUTTON)) {
+    menu_index++;
+    if (menu_index >= menu->list->size() - 1)
+      menu_index = menu->list->size() - 1;
+    Serial.println("menu_index: " + (String)menu_index);
+  }
+
+  // Menu item is selected
+  if (arduboy.justPressed(B_BUTTON)) {
+    mode = menu->list->get(menu_index).mode;
+    menu_index = 0;
+  }
 }
 
 void setup() {
   Serial.begin(115200);
+
+  // Setup menus
+  mainMenu.list = new LinkedList<MenuNode>();
+  loseMenu.list = new LinkedList<MenuNode>();
+
+  mainMenu.name = "Main Menu";
+  loseMenu.name = "Lose Menu";
+
+  // Populate menus with menu options
+  mainMenu.parentMenu = NULL;
+  addNodes(&mainMenu, "Start", 4);
+  addNodes(&mainMenu, "SFX", 3);
+
+  loseMenu.parentMenu = NULL;
+  addNodes(&loseMenu, "Play Again", 4);
+  addNodes(&loseMenu, "Main Menu", 0);
   
   arduboy.begin();
   arduboy.initRandomSeed();
@@ -265,7 +342,17 @@ void loop() {
   if (!(arduboy.nextFrame()))
     return;
 
-  if (!lose) {
+  arduboy.pollButtons();
+
+  // This does not scale well
+  // Main Menu
+  if (mode == 0) {
+    arduboy.clear();
+    runMenu(&mainMenu);
+  }
+
+  // Play game
+  else if ((!lose) && (mode == 1)) {
     // Shoot
     if (arduboy.pressed(B_BUTTON)) {
       if (!just_pressed) {
@@ -374,19 +461,26 @@ void loop() {
     
     drawStatusBar();
   }
-  else {
+
+  // Lose Menu
+  else if (mode == 2){
     arduboy.clear();
 
-    arduboy.println("You lose");
+    arduboy.println("You Died");
     arduboy.println("Waves Survived: " + (String)player.wave);
     arduboy.println("Kills: " + (String)player.kills);
     arduboy.println("Accuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
+
+    runMenu(&loseMenu);
     
     // Restart ?
-    if (arduboy.pressed(B_BUTTON)) {
-      restartGame();
-    }
+    //if (arduboy.pressed(B_BUTTON)) {
+    //  restartGame();
+    //}
   }
+
+  else if (mode == 4)
+    restartGame();
 
   arduboy.display();
 
