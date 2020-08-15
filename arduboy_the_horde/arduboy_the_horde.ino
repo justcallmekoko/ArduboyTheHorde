@@ -174,9 +174,7 @@ struct MenuNode {
 
 // Full Menus
 struct Menu {
-  String name;
   LinkedList<MenuNode>* list;
-  Menu                * parentMenu;
 };
 
 class Player {
@@ -184,6 +182,16 @@ class Player {
     int x = WIDTH / 2;
     int y = HEIGHT / 2;
     int mod = 60 / fps;
+
+    // Weapon info
+    /* Types
+     * 0 - Pistol
+     * 1 - Machine Gun
+     * 2 - RPG
+     */
+    int gun_type = 0; // Start with this gun
+    int fire_rate = 10; // Lower is faster
+    int bullet_itter = fire_rate;
     
     int mov_itter = 0;
     int PSPEED = 0; // Lower is faster
@@ -191,6 +199,13 @@ class Player {
     int wave = 1;
     int total_shots = 0;
     int kills = 0;
+};
+
+class Powerup {
+  public:
+    int type = 0;
+    int x = 0;
+    int y = 0;
 };
 
 class Enemy {
@@ -214,6 +229,7 @@ class Shot {
 // Create lists for storing enemies and shots
 LinkedList<Shot> shots = LinkedList<Shot>();
 LinkedList<Enemy> enemies = LinkedList<Enemy>();
+LinkedList<Powerup> powerups = LinkedList<Powerup>();
 
 // Create player
 Player player;
@@ -284,11 +300,26 @@ void generateWave() {
 
     test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
 
-    Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
+    //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
     enemies.add(test_enemy);
   }
   player.wave++;
+}
+
+// Check if powerup gets hit by player
+void runPowerups() {
+  for (int i = 0; i < powerups.size(); i++) {
+    // Get distance between player and powerup
+    float distance = sqrt(sq(player.x - powerups.get(i).x) + sq(player.y - powerups.get(i).y));
+
+    if (distance <= circle_width * 2) {
+      player.gun_type = powerups.get(i).type;
+      powerups.remove(i);
+    }
+    else
+      arduboy.drawCircle(powerups.get(i).x, powerups.get(i).y, circle_width, WHITE);
+  }
 }
 
 // Work enemy movement
@@ -326,6 +357,19 @@ void runEnemies() {
   }
 }
 
+// Check chance of of spawning powerup
+void generatePowerup(int x, int y) {
+  int chance = random(0, 10);
+  //Serial.println("Chance for powerup: " + (String)chance);
+  if (chance == 0) {
+    Powerup power;
+    power.x = x;
+    power.y = y;
+    power.type = random(0, 2);
+    powerups.add(power);
+  }
+}
+
 // Function to move shots and check shot collision
 void runShots() {
   for (int i = 0; i < shots.size(); i++) {
@@ -359,10 +403,11 @@ void runShots() {
           (shots.get(i).x <= enemies.get(z).x + circle_width) &&
           (shots.get(i).y >= enemies.get(z).y - circle_width) &&
           (shots.get(i).y <= enemies.get(z).y + circle_width)) {
+        generatePowerup(enemies.get(z).x, enemies.get(z).y);
         shots.remove(i);
         enemies.get(z).dead = true;
         enemies.remove(z);
-        Serial.println("Enemies remaining: " + (String)enemies.size());
+        //Serial.println("Enemies remaining: " + (String)enemies.size());
         player.kills++;
         continue;
       }
@@ -388,7 +433,7 @@ void restartGame() {
   player.kills = 0;
   
   // Start game
-  Serial.println("Restart Enemies: " + (String)enemies.size() + " Restart Waves: " + (String)player.wave);
+  //Serial.println("Restart Enemies: " + (String)enemies.size() + " Restart Waves: " + (String)player.wave);
   generateWave();
   
   lose = false;
@@ -458,15 +503,10 @@ void setup() {
   mainMenu.list = new LinkedList<MenuNode>();
   loseMenu.list = new LinkedList<MenuNode>();
 
-  mainMenu.name = "Main Menu";
-  loseMenu.name = "Lose Menu";
-
   // Populate menus with menu options
-  mainMenu.parentMenu = NULL;
   addNodes(&mainMenu, "Start", 4);
   addNodes(&mainMenu, "SFX", 3);
 
-  loseMenu.parentMenu = NULL;
   addNodes(&loseMenu, "Play Again", 4);
   addNodes(&loseMenu, "Main Menu", 0);
   
@@ -495,11 +535,20 @@ void loop() {
 
   // Play game
   else if ((!lose) && (mode == 1)) {
+    
     // Shoot
-    if (arduboy.pressed(B_BUTTON)) {
-      if (!just_pressed) {
-        just_pressed = true;
-        player.total_shots++;
+    // Check if shoot button is pressed
+    if (((arduboy.justPressed(B_BUTTON)) && (player.gun_type == 0)) ||
+        ((arduboy.pressed(B_BUTTON)) && (player.gun_type == 1))) {
+      //Serial.println("Shot");
+      player.total_shots++;
+
+      player.bullet_itter++;
+
+      // Check if fire rate allows shot to be fired
+      if ((player.gun_type == 0) ||
+         ((player.gun_type == 1) && (player.bullet_itter >= player.fire_rate))) {
+        player.bullet_itter = 0;
   
         Shot shot;
         
@@ -532,9 +581,12 @@ void loop() {
           shots.add(shot);
         }
       }
-    }
-    else
-      just_pressed = false;
+    } // End shoot
+
+    // Reset shoot trigger
+    // Need this so machine gun shoots as soon as player presses shoot button
+    if ((arduboy.justReleased(B_BUTTON)) && (player.gun_type == 1))
+      player.bullet_itter = player.fire_rate;
   
     // Sprint
     if (arduboy.pressed(A_BUTTON))
@@ -594,10 +646,12 @@ void loop() {
     // Draw the player
     arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
   
-    // Draw enemies
+    // Run our updates
     runEnemies();
   
     runShots();
+
+    runPowerups();
   
     checkCollision();
     
@@ -608,10 +662,10 @@ void loop() {
   else if (mode == 2){
     arduboy.clear();
 
-    arduboy.println("You Died");
-    arduboy.println("Waves Survived: " + (String)player.wave);
-    arduboy.println("Kills: " + (String)player.kills);
-    arduboy.println("Accuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
+    //arduboy.println("You Died");
+    //arduboy.println("Waves Survived: " + (String)player.wave);
+    //arduboy.println("Kills: " + (String)player.kills);
+    //arduboy.println("Accuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
 
     runMenu(&loseMenu);
     
