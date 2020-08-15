@@ -431,6 +431,8 @@ void restartGame() {
   player.wave = 1;
   player.total_shots = 0;
   player.kills = 0;
+
+  player.gun_type = 0;
   
   // Start game
   //Serial.println("Restart Enemies: " + (String)enemies.size() + " Restart Waves: " + (String)player.wave);
