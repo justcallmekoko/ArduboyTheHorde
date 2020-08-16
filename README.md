@@ -2,6 +2,7 @@
  
 <p align="center">
   <img height="250" src="https://github.com/justcallmekoko/ArduboyTheHorde/blob/master/media/title_screen_capture.png?raw=true">
+  <br>
   <img height="250" src="https://github.com/justcallmekoko/ArduboyTheHorde/blob/master/media/ArduboyTheHorde.gif?raw=true">
   <br>
   <a href="https://www.instagram.com/just.call.me.koko">Instagram</a>
