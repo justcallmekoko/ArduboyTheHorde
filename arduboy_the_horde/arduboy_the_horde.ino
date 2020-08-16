@@ -144,7 +144,7 @@ PROGMEM const unsigned char output_map2[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x00};
 
-String dir = "R";
+int dir = 0;
 
 bool just_pressed = false;
 bool lose = false;
@@ -385,8 +385,10 @@ void runPowerups() {
         
       powerups.remove(i);
     }
-    else
+    else {
       arduboy.drawCircle(powerups.get(i).x, powerups.get(i).y, circle_width, WHITE);
+      arduboy.drawCircle(powerups.get(i).x, powerups.get(i).y, 0, WHITE);
+    }
   }
 }
 
@@ -637,7 +639,7 @@ void setup() {
   
   arduboy.initRandomSeed();
   arduboy.setFrameRate(fps);
-  arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
+  //arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
   arduboy.display();
 
   generateWave();
@@ -680,7 +682,7 @@ void loop() {
   
         Shot shot;
         
-        if (dir == "R") {
+        if (dir == 0) { // Right
           matchShot(player.x, player.y, BULLET_SPEED, 0, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
@@ -694,7 +696,7 @@ void loop() {
           matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
           */
         }
-        else if (dir == "L") {
+        else if (dir == 2) { // Left
           matchShot(player.x, player.y, -BULLET_SPEED, 0, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
@@ -708,7 +710,7 @@ void loop() {
           matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
           */
         }
-        else if (dir == "U") {
+        else if (dir == 3) { // Up
           matchShot(player.x, player.y, 0, -BULLET_SPEED, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
@@ -722,7 +724,7 @@ void loop() {
           matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
           */
         }
-        else if (dir == "D") {
+        else if (dir == 1) { // Down
           matchShot(player.x, player.y, 0, BULLET_SPEED, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
@@ -746,7 +748,7 @@ void loop() {
         
     // Right
     if ((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX)) {
-      dir = "R";
+      dir = 0; // Right
       if (player.x + (1 * 1) < X_MAX)
         player.x = player.x + (1 * 1);
       else
@@ -755,7 +757,7 @@ void loop() {
   
     // Left
     if ((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN)) {
-      dir = "L";
+      dir = 2; // Left
       if (player.x - (1 * 1) > X_MIN)
         player.x = player.x - (1 * 1);
       else
@@ -764,7 +766,7 @@ void loop() {
   
     // UP
     if ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN)) {
-      dir = "U";
+      dir = 3; // Up
       if (player.y - (1 * 1) > Y_MIN)
         player.y = player.y - (1 * 1);
       else
@@ -773,7 +775,7 @@ void loop() {
   
     // Down
     if ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX)) {
-      dir = "D";
+      dir = 1; // Down
       if (player.y + (1 * 1) < Y_MAX)
         player.y = player.y + (1 * 1);
       else
