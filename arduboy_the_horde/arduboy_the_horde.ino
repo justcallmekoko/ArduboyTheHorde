@@ -306,8 +306,10 @@ void runExplosions() {
       arduboy.drawCircle(explosion.x, explosion.y, explosion.r, WHITE);
 
       // Check if enemy in explosion radius
-      if (distance <= explosions.get(i).r + circle_width)
+      if (distance <= explosions.get(i).r + circle_width) {
         enemies.remove(z);
+        player.kills++;
+      }
     }
   }
 }
@@ -480,7 +482,7 @@ void runShots() {
         generatePowerup(enemies.get(z).x, enemies.get(z).y);
         bulletEffect(shots.get(i).effect, shots.get(i).x, shots.get(i).y);
         shots.remove(i);
-        enemies.get(z).dead = true;
+        //enemies.get(z).dead = true;
         enemies.remove(z);
         //Serial.println("Enemies remaining: " + (String)enemies.size());
         player.kills++;
@@ -809,9 +811,9 @@ void loop() {
     arduboy.clear();
 
     //arduboy.println("You Died");
-    arduboy.println("You Died\nWaves Survived: " + (String)(player.wave - 1) +
+    arduboy.println("Dead\nWaves : " + (String)(player.wave - 1) +
                     "\nKills: " + (String)player.kills +
-                    "\nAccuracy: " + (String)((player.kills * 100) / player.total_shots) + "%");
+                    "\nHit&: " + (String)((player.kills * 100) / player.total_shots) + "%");
 
     runMenu(&loseMenu);
     
