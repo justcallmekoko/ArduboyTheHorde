@@ -1,5 +1,6 @@
 #include <Arduboy2.h>
 #include <LinkedList.h>
+#include <List.h>
 
 Arduboy2 arduboy;
 
@@ -13,10 +14,10 @@ Arduboy2 arduboy;
 #define X_MAX (WIDTH - circle_width - 1)
 #define X_MIN circle_width
 #define Y_MAX (HEIGHT - circle_width - 1)
-//#define Y_MIN (circle_width + 1 + STATUS_BAR)
-#define Y_MIN (circle_width + 1)
+#define Y_MIN (circle_width + 1 + STATUS_BAR)
+//#define Y_MIN (circle_width + 1)
 
-#define SPAWN_LIMIT 15
+#define SPAWN_LIMIT 15 // Stable with 10. Testing with 15
 #define BULLET_SPEED 4 // Higher is faster
 #define ENEMY_MIN_SPEED 5 // Lower is faster
 #define ENEMY_MAX_SPEED 4
@@ -144,13 +145,13 @@ PROGMEM const unsigned char output_map2[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x00};
 
-int dir = 0;
+uint8_t dir = 0;
 
 bool just_pressed = false;
 bool lose = false;
-int current_text_size = 1;
-int menu_index = 0;
-int queue = 0;
+uint8_t current_text_size = 1;
+uint8_t menu_index = 0;
+uint8_t queue = 0;
 uint8_t current_text_color = WHITE;
 uint8_t current_background = BLACK;
 
@@ -160,24 +161,25 @@ uint8_t current_background = BLACK;
 // 2 - Lose
 // 3 - SFX
 // 4 - Restart game
-int mode = 0;
+uint8_t mode = 0;
 
-struct Menu;
+//struct Menu;
 
 struct MenuNode {
   String name;
-  int mode;
+  uint8_t mode;
 };
 
 // Full Menus
 struct Menu {
-  LinkedList<MenuNode>* list;
+  //LinkedList<MenuNode>* list;
+  List<MenuNode, 2> list;
 };
 
 class Player {
   public:
-    int x = WIDTH / 2;
-    int y = HEIGHT / 2;
+    uint8_t x = WIDTH / 2;
+    uint8_t y = HEIGHT / 2;
     //int mod = 60 / fps;
 
     // Weapon info
@@ -186,56 +188,62 @@ class Player {
      * 1 - Machine Gun
      * 2 - RPG
      */
-    int gun_type = START_GUN; // Start with this gun
-    int fire_rate = 10; // Lower is faster
-    int bullet_itter = fire_rate;
+    uint8_t gun_type = START_GUN; // Start with this gun
+    uint8_t fire_rate = 10; // Lower is faster
+    uint8_t bullet_itter = fire_rate;
         
-    int wave = 1;
-    int total_shots = 0;
+    uint8_t wave = 1;
+    uint8_t total_shots = 0;
     int kills = 0;
 };
 
 class Powerup {
   public:
-    int type = 0;
-    int x = 0;
-    int y = 0;
+    uint8_t type = 0;
+    uint8_t x = 0;
+    uint8_t y = 0;
 };
 
 class Enemy {
   public:
-    int x = 0;
-    int y = 0;
-    bool dead = false;
+    uint8_t x = 0;
+    uint8_t y = 0;
+    //bool dead = false;
 
-    int mov_itter = 0;
-    int ENEMY_SPEED = 0;
+    uint8_t mov_itter = 0;
+    uint8_t ENEMY_SPEED = 0;
 };
 
 class Shot {
   public:
-    int x = 0;
-    int y = 0;
-    int x_mod = 0;
-    int y_mod = 0;
-    int effect = 0;
+    uint8_t x = 0;
+    uint8_t y = 0;
+    uint8_t x_mod = 0;
+    uint8_t y_mod = 0;
+    uint8_t effect = 0;
     //int range = -1;
-    int bsize = 0;
+    uint8_t bsize = 0;
 };
 
 class Explosion {
   public:
-    int x = 0;
-    int y = 0;
-    int r = 0;
-    int lim = 18;
+    uint8_t x = 0;
+    uint8_t y = 0;
+    uint8_t r = 0;
+    uint8_t lim = 18;
 };
 
 // Create lists for storing enemies and shots
+/*
 LinkedList<Shot> shots = LinkedList<Shot>();
 LinkedList<Enemy> enemies = LinkedList<Enemy>();
 LinkedList<Powerup> powerups = LinkedList<Powerup>();
 LinkedList<Explosion> explosions = LinkedList<Explosion>();
+*/
+List<Shot, 5> shots;
+List<Enemy, SPAWN_LIMIT> enemies;
+List<Powerup, 2> powerups;
+List<Explosion, 2> explosions;
 
 // Create player
 Player player;
@@ -246,7 +254,7 @@ Menu mainMenu;
 // Create lose menu
 Menu loseMenu;
 
-/*
+
 void drawStatusBar() {
   arduboy.fillRect(0, 0, WIDTH, STATUS_BAR, WHITE);
   
@@ -260,21 +268,22 @@ void drawStatusBar() {
   arduboy.print("Wave: " + (String)(player.wave - 1));
   
   arduboy.setCursor(70, 1);
-  arduboy.print("Alive: " + (String)enemies.size());
+  arduboy.print("kills: " + (String)player.kills);
   
   // Return text param to normal
   arduboy.setTextSize(current_text_size);
   arduboy.setTextColor(current_text_color);
   arduboy.setTextBackground(current_background);
 }
-*/
+
 
 // Check if enemy hit player
 bool checkCollision() {
-  for (int i = 0; i < enemies.size(); i++) {
+  //for (int i = 0; i < enemies.size(); i++) {
+  for (int i = 0; i < enemies.getCount(); i++) {
     
     // Calculate distance
-    float distance = sqrt(sq(player.x - enemies.get(i).x) + sq(player.y - enemies.get(i).y));
+    float distance = sqrt(sq(player.x - enemies[i].x) + sq(player.y - enemies[i].y));
     
     // Check if distance is less than the radius of the player plus the radius of the enemy
     // Player dies if enemy circle touches player circle
@@ -286,31 +295,35 @@ bool checkCollision() {
 }
 
 void runExplosions() {
-  for (int i = 0; i < explosions.size(); i++) {
+  //for (int i = 0; i < explosions.size(); i++) {
+  for (int i = 0; i < explosions.getCount(); i++) {
     
-    Explosion explosion;
-    explosion.x = explosions.get(i).x;
-    explosion.y = explosions.get(i).y;
-    explosion.r = explosions.get(i).r + 1;
-    explosion.lim = explosions.get(i).lim;
+    //Explosion explosion;
+    //explosion.x = explosions[i].x;
+    //explosion.y = explosions[i].y;
+    //explosion.r = explosions[i].r + 1;
+    //explosion.lim = explosions[i].lim;
+
+    explosions[i].r = explosions[i].r + 1;
     
-    if (explosion.r > explosion.lim) {
-      explosions.remove(i);
+    if (explosions[i].r > explosions[i].lim) {
+      explosions.removeAt(i);
       continue;
     }
-    else
-      explosions.set(i, explosion);
+    //else
+    //  explosions[i] = explosion;
     
-    for (int z = 0; z < enemies.size(); z++) {
-      float distance = sqrt(sq(explosions.get(i).x - enemies.get(z).x) + sq(explosions.get(i).y - enemies.get(z).y));
+    //for (int z = 0; z < enemies.size(); z++) {
+    for (int z = 0; z < enemies.getCount(); z++) {
+      float distance = sqrt(sq(explosions[i].x - enemies[z].x) + sq(explosions[i].y - enemies[z].y));
 
       // Check if enemy in explosion radius
-      if (distance <= explosions.get(i).r + circle_width) {
-        enemies.remove(z);
+      if (distance <= explosions[i].r + circle_width) {
+        enemies.removeAt(z);
         player.kills++;
       }
     }
-    arduboy.drawCircle(explosion.x, explosion.y, explosion.r, WHITE);
+    arduboy.drawCircle(explosions[i].x, explosions[i].y, explosions[i].r, WHITE);
   }
 }
 
@@ -336,18 +349,22 @@ void spawnEnemy(int count) {
     test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
   
     //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
+
+    Serial.println("Spawning enemy -> x: " + (String)test_enemy.x + " y: " + (String)test_enemy.y);
   
     enemies.add(test_enemy);
   }
 }
 
 void checkEnemyQueue() {
-  if ((enemies.size() < SPAWN_LIMIT) && (queue > 0)) {
+  //if ((enemies.size() < SPAWN_LIMIT) && (queue > 0)) {
+  if ((enemies.getCount() < SPAWN_LIMIT) && (queue > 0)) {
     for (int i = 0; i < queue; i++) {
       //Serial.println("Enemies spawned from queue: " + (String)i);
       spawnEnemy(1);
       queue--;
-      if (enemies.size() >= SPAWN_LIMIT)
+      //if (enemies.size() >= SPAWN_LIMIT)
+      if (enemies.getCount() >= SPAWN_LIMIT)
         break;
     }
   }
@@ -357,7 +374,8 @@ void checkEnemyQueue() {
 void generateWave() {
   //Serial.println("Wave: " + (String)player.wave);
   for (int i = 0; i < player.wave; i++) {
-    if (enemies.size() < SPAWN_LIMIT)
+    //if (enemies.size() < SPAWN_LIMIT)
+    if (enemies.getCount() < SPAWN_LIMIT)
       spawnEnemy(1);
     else
       queue++;
@@ -367,13 +385,13 @@ void generateWave() {
 
 // Check if powerup gets hit by player
 void runPowerups() {
-  for (int i = 0; i < powerups.size(); i++) {
+  for (int i = 0; i < powerups.getCount(); i++) {
     // Get distance between player and powerup
-    float distance = sqrt(sq(player.x - powerups.get(i).x) + sq(player.y - powerups.get(i).y));
+    float distance = sqrt(sq(player.x - powerups[i].x) + sq(player.y - powerups[i].y));
 
     if (distance <= circle_width * 2) {
-      if (powerups.get(i).type != 3)
-        player.gun_type = powerups.get(i).type;
+      if (powerups[i].type != 3)
+        player.gun_type = powerups[i].type;
       else {
         Explosion explosion;
         explosion.x = player.x;
@@ -383,47 +401,48 @@ void runPowerups() {
         explosions.add(explosion);
       }
         
-      powerups.remove(i);
+      powerups.removeAt(i);
     }
     else {
-      arduboy.drawCircle(powerups.get(i).x, powerups.get(i).y, circle_width, WHITE);
-      arduboy.drawCircle(powerups.get(i).x, powerups.get(i).y, 0, WHITE);
+      arduboy.drawCircle(powerups[i].x, powerups[i].y, circle_width, WHITE);
+      arduboy.drawCircle(powerups[i].x, powerups[i].y, 0, WHITE);
     }
   }
 }
 
 // Work enemy movement
 void runEnemies() {
-  for (int i = 0; i < enemies.size(); i++) {
-    if (!enemies.get(i).dead) {
-      Enemy enemy;
-      enemy.mov_itter = enemies.get(i).mov_itter + 1;
-      enemy.x = enemies.get(i).x;
-      enemy.y = enemies.get(i).y;
-      enemy.ENEMY_SPEED = enemies.get(i).ENEMY_SPEED;
+  //for (int i = 0; i < enemies.size(); i++) {
+  for (int i = 0; i < enemies.getCount(); i++) {
+    //if (!enemies[i].dead) {
+    Enemy enemy;
+    enemy.mov_itter = enemies[i].mov_itter + 1;
+    enemy.x = enemies[i].x;
+    enemy.y = enemies[i].y;
+    enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
 
-      // Check if time for enemy to move
-      if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
-        enemy.mov_itter = 0;
+    // Check if time for enemy to move
+    if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
+      enemy.mov_itter = 0;
 
-        // Move enemy closer to player
-        if (enemy.x < player.x)
-          enemy.x++;
-        if (enemy.x > player.x)
-          enemy.x--;
+      // Move enemy closer to player
+      if (enemy.x < player.x)
+        enemy.x++;
+      if (enemy.x > player.x)
+        enemy.x--;
 
-        if (enemy.y < player.y)
-          enemy.y++;
-        if (enemy.y > player.y)
-          enemy.y--;
+      if (enemy.y < player.y)
+        enemy.y++;
+      if (enemy.y > player.y)
+        enemy.y--;
 
-      }
-
-      enemies.set(i, enemy);
-      
-      arduboy.drawCircle(enemies.get(i).x, enemies.get(i).y, circle_width, WHITE);
-      arduboy.drawCircle(enemies.get(i).x, enemies.get(i).y, circle_width - 1, WHITE);
     }
+
+    enemies[i] = enemy;
+    
+    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width, WHITE);
+    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width - 1, WHITE);
+    //}
   }
 }
 
@@ -446,48 +465,55 @@ void generatePowerup(int x, int y) {
 
 // Function to move shots and check shot collision
 void runShots() {
-  for (int i = 0; i < shots.size(); i++) {
+  for (int i = 0; i < shots.getCount(); i++) {
     
     // Move coordinates based on direction
     Shot shot;
-    shot.x = shots.get(i).x + shots.get(i).x_mod;
-    shot.y = shots.get(i).y + shots.get(i).y_mod;
-    shot.x_mod = shots.get(i).x_mod;
-    shot.y_mod = shots.get(i).y_mod;
-    shot.effect = shots.get(i).effect;
-    //shot.range = shots.get(i).range - 1;
-    shot.bsize = shots.get(i).bsize;
+    shot.x = shots[i].x + shots[i].x_mod;
+    shot.y = shots[i].y + shots[i].y_mod;
+    shot.x_mod = shots[i].x_mod;
+    shot.y_mod = shots[i].y_mod;
+    shot.effect = shots[i].effect;
+    //shot.range = shots[i].range - 1;
+    shot.bsize = shots[i].bsize;
 
-    shots.set(i, shot);
+    shots[i] = shot;
 
     // Check if off screen and if it is, remove from list
-    if ((shots.get(i).x < X_MIN) ||
-        (shots.get(i).x > X_MAX) ||
-        (shots.get(i).y < Y_MIN) ||
-        (shots.get(i).y > Y_MAX)) {
+    if ((shots[i].x < X_MIN) ||
+        (shots[i].x > X_MAX) ||
+        (shots[i].y < Y_MIN) ||
+        (shots[i].y > Y_MAX)) {
         //(shot.range == 0)) {
-      shots.remove(i);
+      shots.removeAt(i);
       continue;
     }
 
     // Draw the shot
-    arduboy.drawCircle(shots.get(i).x, shots.get(i).y, shots.get(i).bsize, WHITE);
+    arduboy.drawCircle(shots[i].x, shots[i].y, shots[i].bsize, WHITE);
 
     // Check enemies
-    for (int z = 0; z < enemies.size(); z++) {
+    //for (int z = 0; z < enemies.size(); z++) {
+    for (int z = 0; z < enemies.getCount(); z++) {
       
       // Enemy hit if true
-      if ((shots.get(i).x >= enemies.get(z).x - circle_width) && 
-          (shots.get(i).x <= enemies.get(z).x + circle_width) &&
-          (shots.get(i).y >= enemies.get(z).y - circle_width) &&
-          (shots.get(i).y <= enemies.get(z).y + circle_width)) {
-        generatePowerup(enemies.get(z).x, enemies.get(z).y);
-        bulletEffect(shots.get(i).effect, shots.get(i).x, shots.get(i).y);
-        shots.remove(i);
-        //enemies.get(z).dead = true;
-        enemies.remove(z);
+      if ((shots[i].x >= enemies[z].x - circle_width) && 
+          (shots[i].x <= enemies[z].x + circle_width) &&
+          (shots[i].y >= enemies[z].y - circle_width) &&
+          (shots[i].y <= enemies[z].y + circle_width)) {
+        //generatePowerup(enemies[z].x, enemies[z].y);
+        generatePowerup(enemies[z].x, enemies[z].y);
+        //bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
+        bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
+        shots.removeAt(i);
+        //enemies[z].dead = true;
+        enemies.removeAt(z);
         //Serial.println("Enemies remaining: " + (String)enemies.size());
         player.kills++;
+
+        if (shots.isEmpty())
+          break;
+          
         continue;
       }
     }
@@ -524,15 +550,15 @@ void restartGame() {
 // Function to add MenuNodes to a menu
 void addNodes(Menu * menu, String name, int mode)
 {
-  menu->list->add(MenuNode{name, mode});
+  menu->list.add(MenuNode{name, mode});
 }
 
 void runMenu(Menu * menu, bool inverted = false) {
   // Iterate through menu items
-  for (int i = 0; i < menu->list->size(); i++) {
+  for (int i = 0; i < menu->list.getCount(); i++) {
 
     // Format text to be printed on screen
-    int num_chars = menu->list->get(i).name.length();
+    int num_chars = menu->list[i].name.length();
     //int x = (WIDTH / 2) - (num_chars * CHAR_WIDTH / 2);
     int x = WIDTH - (num_chars * CHAR_WIDTH) - 5;
     int y = (HEIGHT / 2) - (CHAR_HEIGHT / 2);
@@ -541,7 +567,7 @@ void runMenu(Menu * menu, bool inverted = false) {
       arduboy.setTextColor(BLACK);
       arduboy.setTextBackground(WHITE);
     }
-    arduboy.print(menu->list->get(i).name);
+    arduboy.print(menu->list[i].name);
     arduboy.setTextColor(current_text_color);
     arduboy.setTextBackground(current_background);
 
@@ -565,14 +591,14 @@ void runMenu(Menu * menu, bool inverted = false) {
   // Cycle Up menu index
   if (arduboy.justPressed(DOWN_BUTTON)) {
     menu_index++;
-    if (menu_index >= menu->list->size() - 1)
-      menu_index = menu->list->size() - 1;
+    if (menu_index >= menu->list.getCount() - 1)
+      menu_index = menu->list.getCount() - 1;
     //Serial.println("menu_index: " + (String)menu_index);
   }
 
   // Menu item is selected
   if (arduboy.justPressed(B_BUTTON)) {
-    mode = menu->list->get(menu_index).mode;
+    mode = menu->list[menu_index].mode;
     menu_index = 0;
   }
 }
@@ -627,8 +653,10 @@ void setup() {
   Serial.begin(115200);
 
   // Setup menus
-  mainMenu.list = new LinkedList<MenuNode>();
-  loseMenu.list = new LinkedList<MenuNode>();
+  //mainMenu.list = new LinkedList<MenuNode>();
+  //loseMenu.list = new LinkedList<MenuNode>();
+  //mainMenu.list = new List<MenuNode, 128>();
+  //loseMenu.list = new List<MenuNode, 128>();
 
   // Populate menus with menu options
   addNodes(&mainMenu, "Start", 4);
@@ -646,6 +674,13 @@ void setup() {
 }
 
 void loop() {
+  Serial.println("mode: " + (String)mode +
+                 "\nWave: " + (String)(player.wave - 1) +
+                 "\nShots: " + (String)shots.getCount() +
+                 "\nEnemies: " + (String)enemies.getCount() +
+                 "\nExplosions: " + (String)explosions.getCount() +
+                 "\nPowerups: " + (String)powerups.getCount() +
+                 "\n-------------------------------");
   if (!(arduboy.nextFrame()))
     return;
 
@@ -783,7 +818,8 @@ void loop() {
     }
   
     // Create new wave if all enemies defeated
-    if (enemies.size() <= 0) {
+    //if (enemies.size() <= 0) {
+    if (enemies.getCount() <= 0) {
       generateWave();
     }
   
@@ -805,7 +841,7 @@ void loop() {
 
     runExplosions();
     
-    //drawStatusBar();
+    drawStatusBar();
   }
 
   // Lose Menu
