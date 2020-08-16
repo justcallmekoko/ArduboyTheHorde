@@ -219,14 +219,23 @@ class Shot {
     int x_mod = 0;
     int y_mod = 0;
     int effect = 0;
-    int range = -1;
+    //int range = -1;
     int bsize = 0;
+};
+
+class Explosion {
+  public:
+    int x = 0;
+    int y = 0;
+    int r = 0;
+    int lim = 18;
 };
 
 // Create lists for storing enemies and shots
 LinkedList<Shot> shots = LinkedList<Shot>();
 LinkedList<Enemy> enemies = LinkedList<Enemy>();
 LinkedList<Powerup> powerups = LinkedList<Powerup>();
+LinkedList<Explosion> explosions = LinkedList<Explosion>();
 
 // Create player
 Player player;
@@ -272,6 +281,33 @@ bool checkCollision() {
     if (distance <= circle_width * 2) {
       lose = true;
       mode = 2;
+    }
+  }
+}
+
+void runExplosions() {
+  for (int i = 0; i < explosions.size(); i++) {
+    Explosion explosion;
+    for (int z = 0; z < enemies.size(); z++) {
+      float distance = sqrt(sq(explosions.get(i).x - enemies.get(z).x) + sq(explosions.get(i).y - enemies.get(z).y));
+
+      explosion.x = explosions.get(i).x;
+      explosion.y = explosions.get(i).y;
+      explosion.r = explosions.get(i).r + 1;
+      explosion.lim = explosions.get(i).lim;
+
+      if (explosion.r > explosion.lim) {
+        explosions.remove(i);
+        continue;
+      }
+      else
+        explosions.set(i, explosion);
+
+      arduboy.drawCircle(explosion.x, explosion.y, explosion.r, WHITE);
+
+      // Check if enemy in explosion radius
+      if (distance <= explosions.get(i).r + circle_width)
+        enemies.remove(z);
     }
   }
 }
@@ -405,7 +441,7 @@ void runShots() {
     shot.x_mod = shots.get(i).x_mod;
     shot.y_mod = shots.get(i).y_mod;
     shot.effect = shots.get(i).effect;
-    shot.range = shots.get(i).range - 1;
+    //shot.range = shots.get(i).range - 1;
     shot.bsize = shots.get(i).bsize;
 
     shots.set(i, shot);
@@ -414,8 +450,8 @@ void runShots() {
     if ((shots.get(i).x < X_MIN) ||
         (shots.get(i).x > X_MAX) ||
         (shots.get(i).y < Y_MIN) ||
-        (shots.get(i).y > Y_MAX) ||
-        (shot.range == 0)) {
+        (shots.get(i).y > Y_MAX)) {
+        //(shot.range == 0)) {
       shots.remove(i);
       continue;
     }
@@ -450,6 +486,7 @@ void restartGame() {
   enemies.clear();
   powerups.clear();
   shots.clear();
+  explosions.clear();
   
   // Reset player values
   player.x = WIDTH / 2;
@@ -530,19 +567,26 @@ void bulletEffect(int effect, int x, int y) {
   // RPG Burst
   //Serial.println("Running bullet effect: " + (String)effect);
   if (effect == 2) {
+    Explosion explosion;
+    explosion.x = x;
+    explosion.y = y;
+    explosion.r = 0;
+    explosions.add(explosion);
+    /*
     matchShot(x, y, BULLET_SPEED, 0, 0, 8);
     matchShot(x, y, -BULLET_SPEED, 0, 0, 8);
     matchShot(x, y, BULLET_SPEED, BULLET_SPEED, 0, 5);
     matchShot(x, y, -BULLET_SPEED, BULLET_SPEED, 0, 5);
     matchShot(x, y, 0, BULLET_SPEED, 0, 8);
     matchShot(x, y, 0, -BULLET_SPEED, 0, 8);
-    matchShot(x, y, BULLET_SPEED, BULLET_SPEED, 0, 5);
     matchShot(x, y, BULLET_SPEED, -BULLET_SPEED, 0, 5);
     matchShot(x, y, -BULLET_SPEED, -BULLET_SPEED, 0, 5);
+    */
   }
 }
 
-void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
+//void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
+void matchShot(int x, int y, int xmod, int ymod, int effect) {
   //Serial.println("Creating shot with effect: " + (String)effect);
   Shot shot;
   shot.x = x;
@@ -556,7 +600,7 @@ void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
     shot.y_mod = ymod / 2;
   }
   shot.effect = effect;
-  shot.range = range;
+  //shot.range = range;
 
   if (shot.effect == 2)
     shot.bsize = 1;
@@ -565,6 +609,7 @@ void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
 }
 
 void setup() {
+  arduboy.begin();
   Serial.begin(115200);
 
   // Setup menus
@@ -578,7 +623,6 @@ void setup() {
   addNodes(&loseMenu, "Play Again", 4);
   addNodes(&loseMenu, "Main Menu", 0);
   
-  arduboy.begin();
   arduboy.initRandomSeed();
   arduboy.setFrameRate(fps);
   arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
@@ -625,7 +669,7 @@ void loop() {
         Shot shot;
         
         if (dir == "R") {
-          matchShot(player.x, player.y, BULLET_SPEED, 0, player.gun_type, -1); // This
+          matchShot(player.x, player.y, BULLET_SPEED, 0, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
           matchShot(player.x, player.y, -BULLET_SPEED, 0);
@@ -639,7 +683,7 @@ void loop() {
           */
         }
         else if (dir == "L") {
-          matchShot(player.x, player.y, -BULLET_SPEED, 0, player.gun_type, -1); // This
+          matchShot(player.x, player.y, -BULLET_SPEED, 0, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
           matchShot(player.x, player.y, -BULLET_SPEED, 0);
@@ -653,7 +697,7 @@ void loop() {
           */
         }
         else if (dir == "U") {
-          matchShot(player.x, player.y, 0, -BULLET_SPEED, player.gun_type, -1); // This
+          matchShot(player.x, player.y, 0, -BULLET_SPEED, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
           matchShot(player.x, player.y, -BULLET_SPEED, 0);
@@ -667,7 +711,7 @@ void loop() {
           */
         }
         else if (dir == "D") {
-          matchShot(player.x, player.y, 0, BULLET_SPEED, player.gun_type, -1); // This
+          matchShot(player.x, player.y, 0, BULLET_SPEED, player.gun_type); // This
           /*
           matchShot(player.x, player.y, BULLET_SPEED, 0);
           matchShot(player.x, player.y, -BULLET_SPEED, 0);
@@ -744,6 +788,8 @@ void loop() {
     checkCollision();
 
     checkEnemyQueue();
+
+    runExplosions();
     
     //drawStatusBar();
   }
@@ -754,8 +800,8 @@ void loop() {
 
     //arduboy.println("You Died");
     arduboy.println("You Died\nWaves Survived: " + (String)(player.wave - 1) +
-                    "\nKills: " + (String)player.kills +
-                    "\nAccuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
+                    "\nKills: " + (String)player.kills);
+                    //"\nAccuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
 
     runMenu(&loseMenu);
     
