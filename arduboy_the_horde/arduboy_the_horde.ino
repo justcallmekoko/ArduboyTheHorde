@@ -287,23 +287,22 @@ bool checkCollision() {
 
 void runExplosions() {
   for (int i = 0; i < explosions.size(); i++) {
+    
     Explosion explosion;
+    explosion.x = explosions.get(i).x;
+    explosion.y = explosions.get(i).y;
+    explosion.r = explosions.get(i).r + 1;
+    explosion.lim = explosions.get(i).lim;
+    
+    if (explosion.r > explosion.lim) {
+      explosions.remove(i);
+      continue;
+    }
+    else
+      explosions.set(i, explosion);
+    
     for (int z = 0; z < enemies.size(); z++) {
       float distance = sqrt(sq(explosions.get(i).x - enemies.get(z).x) + sq(explosions.get(i).y - enemies.get(z).y));
-
-      explosion.x = explosions.get(i).x;
-      explosion.y = explosions.get(i).y;
-      explosion.r = explosions.get(i).r + 1;
-      explosion.lim = explosions.get(i).lim;
-
-      if (explosion.r > explosion.lim) {
-        explosions.remove(i);
-        continue;
-      }
-      else
-        explosions.set(i, explosion);
-
-      arduboy.drawCircle(explosion.x, explosion.y, explosion.r, WHITE);
 
       // Check if enemy in explosion radius
       if (distance <= explosions.get(i).r + circle_width) {
@@ -311,6 +310,7 @@ void runExplosions() {
         player.kills++;
       }
     }
+    arduboy.drawCircle(explosion.x, explosion.y, explosion.r, WHITE);
   }
 }
 
