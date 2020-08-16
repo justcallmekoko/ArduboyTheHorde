@@ -3,7 +3,7 @@
 
 Arduboy2 arduboy;
 
-#define START_GUN 2
+#define START_GUN 0
 #define CHAR_WIDTH 6
 #define CHAR_HEIGHT 8
 #define fps 60
@@ -800,8 +800,8 @@ void loop() {
 
     //arduboy.println("You Died");
     arduboy.println("You Died\nWaves Survived: " + (String)(player.wave - 1) +
-                    "\nKills: " + (String)player.kills);
-                    //"\nAccuracy: " + (String)(((float)player.kills * 100.0) / (float)player.total_shots) + "%");
+                    "\nKills: " + (String)player.kills +
+                    "\nAccuracy: " + (String)((player.kills * 100) / player.total_shots) + "%");
 
     runMenu(&loseMenu);
     
