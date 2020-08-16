@@ -370,7 +370,17 @@ void runPowerups() {
     float distance = sqrt(sq(player.x - powerups.get(i).x) + sq(player.y - powerups.get(i).y));
 
     if (distance <= circle_width * 2) {
-      player.gun_type = powerups.get(i).type;
+      if (powerups.get(i).type != 3)
+        player.gun_type = powerups.get(i).type;
+      else {
+        Explosion explosion;
+        explosion.x = player.x;
+        explosion.y = player.y;
+        explosion.r = 0;
+        explosion.lim = 100;
+        explosions.add(explosion);
+      }
+        
       powerups.remove(i);
     }
     else
@@ -421,7 +431,7 @@ void generatePowerup(int x, int y) {
     Powerup power;
     power.x = x;
     power.y = y;
-    power.type = random(player.gun_type, 3);
+    power.type = random(player.gun_type, 4);
 
     // Only generate a powerup equal or greater than the current powerup
     while (power.type < player.gun_type)
