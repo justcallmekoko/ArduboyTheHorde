@@ -277,10 +277,12 @@ void drawStatusBar() {
   
   // Draw status bar text
   arduboy.setCursor(1, 1);
-  arduboy.print("W: " + (String)(player.wave - 1));
+  arduboy.print(F("W: "));
+  arduboy.print(player.wave - 1);
   
   arduboy.setCursor(58, 1);
-  arduboy.print("K: " + (String)player.kills);
+  arduboy.print(F("K: "));
+  arduboy.print(player.kills);
   
   // Return text param to normal
   arduboy.setTextSize(current_text_size);
@@ -362,7 +364,10 @@ void spawnEnemy(int count) {
   
     //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
-    Serial.println("Spawning enemy -> x: " + (String)test_enemy.x + " y: " + (String)test_enemy.y);
+    Serial.print(F("Spawning enemy -> x: "));
+	Serial.print(test_enemy.x);
+	Serial.print(F(" y: "));
+	Serial.println(test_enemy.y);
   
     enemies.add(test_enemy);
   }
@@ -932,9 +937,19 @@ void loop() {
     arduboy.clear();
 
     //arduboy.println("You Died");
-    arduboy.println("Dead\nWaves : " + (String)(player.wave - 1) +
-                    "\nKills: " + (String)player.kills +
-                    "\nHit&: " + (String)((player.kills * 100) / player.total_shots) + "%");
+    arduboy.print(F("Dead\nWaves : "));
+    arduboy.println(player.wave - 1);
+    arduboy.print(F("Kills: "));
+	arduboy.println(player.kills);
+    arduboy.print(F("Hit&: "));
+    arduboy.print((player.kills * 100) / player.total_shots);
+    arduboy.print(F("%\nDead\nWaves : "));
+	arduboy.println(player.wave - 1);
+    arduboy.print(F("Kills: "));
+	arduboy.println(player.kills);
+    arduboy.print(F("Hit&: "));
+	arduboy.print((player.kills * 100) / player.total_shots);
+    arduboy.print(F("%\n"));
 
     runMenu(&loseMenu);
     
