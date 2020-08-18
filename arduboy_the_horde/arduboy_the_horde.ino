@@ -1,5 +1,7 @@
 #include <Arduboy2.h>
 #include "List.h"
+#include "Size.h"
+#include "FlashStringHelper.h"
 
 Arduboy2 arduboy;
 
@@ -31,7 +33,7 @@ Arduboy2 arduboy;
 #define ENEMY_MIN_SPEED 5 // Lower is faster
 #define ENEMY_MAX_SPEED 4
 
-String version_number = "v0.1";
+constexpr char version_number[] PROGMEM = "v0.1";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -177,7 +179,8 @@ uint8_t mode = 0;
 //struct Menu;
 
 struct MenuNode {
-  String name;
+  FlashStringHelper name;
+  uint8_t length;
   uint8_t mode;
 };
 
@@ -573,9 +576,9 @@ void restartGame() {
 }
 
 // Function to add MenuNodes to a menu
-void addNodes(Menu * menu, String name, int mode)
+template<size_t size> void addNodes(Menu & menu, const char (& name)[size], uint8_t mode)
 {
-  menu->list.add(MenuNode{name, mode});
+  menu.list.add({ asFlashStringHelper(name), (size - 1), mode });
 }
 
 void runMenu(Menu * menu, bool inverted = false) {
@@ -583,7 +586,7 @@ void runMenu(Menu * menu, bool inverted = false) {
   for (int i = 0; i < menu->list.getCount(); i++) {
 
     // Format text to be printed on screen
-    int num_chars = menu->list[i].name.length();
+    int num_chars = menu->list[i].length;
     //int x = (WIDTH / 2) - (num_chars * CHAR_WIDTH / 2);
     int x = WIDTH - (num_chars * CHAR_WIDTH) - 5;
     int y = (HEIGHT / 2) - (CHAR_HEIGHT / 2);
@@ -728,6 +731,11 @@ void matchShot(int x, int y, int xmod, int ymod, int effect) {
   shots.add(shot);
 }
 
+constexpr char startText[] PROGMEM = "Start";
+constexpr char sfxText[] PROGMEM = "SFX";
+constexpr char playAgainText[] PROGMEM = "Play Again";
+constexpr char mainMenuText[] PROGMEM = "Main Menu";
+
 void setup() {
   arduboy.begin();
   Serial.begin(115200);
@@ -739,11 +747,11 @@ void setup() {
   //loseMenu.list = new List<MenuNode, 128>();
 
   // Populate menus with menu options
-  addNodes(&mainMenu, "Start", 4);
-  //addNodes(&mainMenu, "SFX", 3);
+  addNodes(mainMenu, startText, 4);
+  //addNodes(&mainMenu, sfxText, 3);
 
-  addNodes(&loseMenu, "Play Again", 4);
-  addNodes(&loseMenu, "Main Menu", 0);
+  addNodes(loseMenu, playAgainText, 4);
+  addNodes(loseMenu, mainMenuText, 0);
   
   arduboy.initRandomSeed();
   arduboy.setFrameRate(fps);
@@ -776,8 +784,8 @@ void loop() {
     arduboy.drawSlowXYBitmap(81,0,output_map1,48,31,1);
     arduboy.setTextColor(BLACK);
     arduboy.setTextBackground(WHITE);
-    arduboy.setCursor(X_MAX - (CHAR_WIDTH * version_number.length()), 31);
-    arduboy.print(version_number);
+    arduboy.setCursor(X_MAX - (CHAR_WIDTH * (getSize(version_number) - 1)), 31);
+    arduboy.print(asFlashStringHelper(version_number));
     arduboy.setTextColor(current_text_color);
     arduboy.setTextBackground(current_background);
     runMenu(&mainMenu, true);
