@@ -4,7 +4,17 @@
 
 Arduboy2 arduboy;
 
-#define START_GUN 0
+#define NUM_WEAPONS 5
+
+#define PISTOL 0
+#define MACHINE_GUN 1
+#define SHOTGUN 2
+#define RPG 3
+#define NUKE 4
+
+#define START_GUN PISTOL // Gun to start game with
+#define SPREAD 0.4
+
 #define CHAR_WIDTH 6
 #define CHAR_HEIGHT 8
 #define fps 60
@@ -21,6 +31,8 @@ Arduboy2 arduboy;
 #define BULLET_SPEED 4 // Higher is faster
 #define ENEMY_MIN_SPEED 5 // Lower is faster
 #define ENEMY_MAX_SPEED 4
+
+String version_number = "v0.1";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -150,7 +162,7 @@ uint8_t dir = 0;
 bool just_pressed = false;
 bool lose = false;
 uint8_t current_text_size = 1;
-uint8_t menu_index = 0;
+int menu_index = 0;
 uint8_t queue = 0;
 uint8_t current_text_color = WHITE;
 uint8_t current_background = BLACK;
@@ -187,6 +199,7 @@ class Player {
      * 0 - Pistol
      * 1 - Machine Gun
      * 2 - RPG
+     * 3 - Shotgun
      */
     uint8_t gun_type = START_GUN; // Start with this gun
     uint8_t fire_rate = 10; // Lower is faster
@@ -216,10 +229,10 @@ class Enemy {
 
 class Shot {
   public:
-    uint8_t x = 0;
-    uint8_t y = 0;
-    uint8_t x_mod = 0;
-    uint8_t y_mod = 0;
+    float x = 0;
+    float y = 0;
+    float x_mod = 0;
+    float y_mod = 0;
     uint8_t effect = 0;
     //int range = -1;
     uint8_t bsize = 0;
@@ -240,10 +253,10 @@ LinkedList<Enemy> enemies = LinkedList<Enemy>();
 LinkedList<Powerup> powerups = LinkedList<Powerup>();
 LinkedList<Explosion> explosions = LinkedList<Explosion>();
 */
-List<Shot, 5> shots;
+List<Shot, 8> shots;
 List<Enemy, SPAWN_LIMIT> enemies;
-List<Powerup, 2> powerups;
-List<Explosion, 2> explosions;
+List<Powerup, 5> powerups;
+List<Explosion, 4> explosions;
 
 // Create player
 Player player;
@@ -265,10 +278,10 @@ void drawStatusBar() {
   
   // Draw status bar text
   arduboy.setCursor(1, 1);
-  arduboy.print("Wave: " + (String)(player.wave - 1));
+  arduboy.print("W: " + (String)(player.wave - 1));
   
-  arduboy.setCursor(70, 1);
-  arduboy.print("kills: " + (String)player.kills);
+  arduboy.setCursor(58, 1);
+  arduboy.print("K: " + (String)player.kills);
   
   // Return text param to normal
   arduboy.setTextSize(current_text_size);
@@ -339,8 +352,8 @@ void spawnEnemy(int count) {
            (spawn_x < X_MAX) &&
            (spawn_y > Y_MIN) &&
            (spawn_y < Y_MAX)){
-      spawn_x = random(X_MIN - 5, X_MAX + 5);
-      spawn_y = random(X_MIN - 5, X_MAX + 5);
+      spawn_x = random(X_MIN - 20, X_MAX + 20);
+      spawn_y = random(Y_MIN - 20, Y_MAX + 20);
     }
   
     test_enemy.x = spawn_x;
@@ -390,7 +403,7 @@ void runPowerups() {
     float distance = sqrt(sq(player.x - powerups[i].x) + sq(player.y - powerups[i].y));
 
     if (distance <= circle_width * 2) {
-      if (powerups[i].type != 3)
+      if (powerups[i].type != NUKE)
         player.gun_type = powerups[i].type;
       else {
         Explosion explosion;
@@ -448,18 +461,26 @@ void runEnemies() {
 
 // Check chance of of spawning powerup
 void generatePowerup(int x, int y) {
-  int chance = random(0, 10);
-  //Serial.println("Chance for powerup: " + (String)chance);
-  if (chance == 0) {
-    Powerup power;
-    power.x = x;
-    power.y = y;
-    power.type = random(player.gun_type, 4);
 
-    // Only generate a powerup equal or greater than the current powerup
-    while (power.type < player.gun_type)
-      power.type = random(player.gun_type, 3);
-    powerups.add(power);
+  // Only try to generate a powerup if the enemy died on screen
+  if ((x > X_MIN) &&
+      (x < X_MAX) &&
+      (y > Y_MIN) &&
+      (y < Y_MAX) &&
+      (player.gun_type != NUM_WEAPONS)) {
+    int chance = random(0, 10);
+    //Serial.println("Chance for powerup: " + (String)chance);
+    if (chance == 0) {
+      Powerup power;
+      power.x = x;
+      power.y = y;
+      power.type = random(player.gun_type + 1, NUM_WEAPONS);
+  
+      // Only generate a powerup equal or greater than the current powerup
+      while (power.type < player.gun_type)
+        power.type = random(player.gun_type + 1, NUM_WEAPONS);
+      powerups.add(power);
+    }
   }
 }
 
@@ -606,7 +627,7 @@ void runMenu(Menu * menu, bool inverted = false) {
 void bulletEffect(int effect, int x, int y) {
   // RPG Burst
   //Serial.println("Running bullet effect: " + (String)effect);
-  if (effect == 2) {
+  if (effect == RPG) {
     Explosion explosion;
     explosion.x = x;
     explosion.y = y;
@@ -625,13 +646,19 @@ void bulletEffect(int effect, int x, int y) {
   }
 }
 
+float shotSpread(float lower, float upper) {
+  return (float)(random(lower, upper) / 100.0);
+}
+
 //void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
 void matchShot(int x, int y, int xmod, int ymod, int effect) {
   //Serial.println("Creating shot with effect: " + (String)effect);
   Shot shot;
   shot.x = x;
   shot.y = y;
-  if (effect != 2) {
+
+  // Adjust specific speed
+  if (effect != RPG) {
     shot.x_mod = xmod;
     shot.y_mod = ymod;
   }
@@ -639,11 +666,60 @@ void matchShot(int x, int y, int xmod, int ymod, int effect) {
     shot.x_mod = xmod / 2;
     shot.y_mod = ymod / 2;
   }
-  shot.effect = effect;
-  //shot.range = range;
 
-  if (shot.effect == 2)
+  // Transfer effect
+  shot.effect = effect;
+
+  if (shot.effect == RPG)
     shot.bsize = 1;
+
+  // Shotgun stuff
+  if (shot.effect == SHOTGUN) {
+    Shot shot1;
+    Shot shot2;
+
+    shot1.x = shot.x;
+    shot1.y = shot.y;
+    shot1.effect = shot.effect;
+
+    shot2.x = shot.x;
+    shot2.y = shot.y;
+    shot2.effect = shot.effect;
+
+    if ((shot.x_mod > 0) && (shot.y_mod == 0)) {// Right
+      shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
+      shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
+      shot1.y_mod = shot.y_mod + shotSpread(20, 91);
+      shot2.y_mod = shot.y_mod - shotSpread(20, 91);
+    }
+    else if ((shot.x_mod < 0) && (shot.y_mod == 0)) {// Left
+      shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
+      shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
+      shot1.y_mod = shot.y_mod + shotSpread(20, 91);
+      shot2.y_mod = shot.y_mod - shotSpread(20, 91);
+    }
+    else if ((shot.x_mod == 0) && (shot.y_mod < 0)) {// Up
+      shot1.x_mod = shot.x_mod + shotSpread(20, 91);
+      shot2.x_mod = shot.x_mod - shotSpread(20, 91);
+      shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
+      shot2.y_mod = shot.y_mod + shotSpread(-40, 40);
+    }
+    else if ((shot.x_mod == 0) && (shot.y_mod > 0)) {// Down
+      shot1.x_mod = shot.x_mod + shotSpread(20, 91);
+      shot2.x_mod = shot.x_mod - shotSpread(20, 91);
+      shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
+      shot2.y_mod = shot.y_mod + shotSpread(-40, 40);
+    }
+    else {
+      shot1.x_mod = shot.x_mod;
+      shot2.x_mod = shot.x_mod;
+      shot1.y_mod = shot.y_mod;
+      shot2.y_mod = shot.y_mod;
+    }
+    
+    shots.add(shot1);
+    shots.add(shot2);
+  }
     
   shots.add(shot);
 }
@@ -674,13 +750,13 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("mode: " + (String)mode +
-                 "\nWave: " + (String)(player.wave - 1) +
-                 "\nShots: " + (String)shots.getCount() +
-                 "\nEnemies: " + (String)enemies.getCount() +
-                 "\nExplosions: " + (String)explosions.getCount() +
-                 "\nPowerups: " + (String)powerups.getCount() +
-                 "\n-------------------------------");
+  //Serial.println("mode: " + (String)mode +
+  //               "\nWave: " + (String)(player.wave - 1) +
+  //               "\nShots: " + (String)shots.getCount() +
+  //               "\nEnemies: " + (String)enemies.getCount() +
+  //               "\nExplosions: " + (String)explosions.getCount() +
+  //               "\nPowerups: " + (String)powerups.getCount() +
+  //               "\n-------------------------------");
   if (!(arduboy.nextFrame()))
     return;
 
@@ -694,6 +770,12 @@ void loop() {
     arduboy.fillRect(127,0,1,31,WHITE);
     arduboy.drawSlowXYBitmap(0,0,output_map2,88,64,1);
     arduboy.drawSlowXYBitmap(81,0,output_map1,48,31,1);
+    arduboy.setTextColor(BLACK);
+    arduboy.setTextBackground(WHITE);
+    arduboy.setCursor(X_MAX - (CHAR_WIDTH * version_number.length()), 31);
+    arduboy.print(version_number);
+    arduboy.setTextColor(current_text_color);
+    arduboy.setTextBackground(current_background);
     runMenu(&mainMenu, true);
   }
 
@@ -702,17 +784,19 @@ void loop() {
     
     // Shoot
     // Check if shoot button is pressed
-    if (((arduboy.justPressed(B_BUTTON)) && (player.gun_type == 0)) ||
-        ((arduboy.justPressed(B_BUTTON)) && (player.gun_type == 2)) ||
-        ((arduboy.pressed(B_BUTTON)) && (player.gun_type == 1))) {
+    if (((arduboy.justPressed(B_BUTTON)) && (player.gun_type == PISTOL)) || // Pistol
+        ((arduboy.justPressed(B_BUTTON)) && (player.gun_type == RPG)) || // RPG
+        ((arduboy.justPressed(B_BUTTON)) && (player.gun_type == SHOTGUN)) || // Shotgun
+        ((arduboy.pressed(B_BUTTON)) && (player.gun_type == MACHINE_GUN))) {
       player.total_shots++;
 
       player.bullet_itter++;
 
       // Check if fire rate allows shot to be fired
-      if ((player.gun_type == 0) ||
-          (player.gun_type == 2) ||
-         ((player.gun_type == 1) && (player.bullet_itter >= player.fire_rate))) {
+      if ((player.gun_type == PISTOL) || // Pistol
+          (player.gun_type == RPG) || // RPG
+          (player.gun_type == SHOTGUN) || // Shotgun
+         ((player.gun_type == MACHINE_GUN) && (player.bullet_itter >= player.fire_rate))) { // Machine gun
         player.bullet_itter = 0;
   
         Shot shot;
@@ -778,7 +862,7 @@ void loop() {
 
     // Reset shoot trigger
     // Need this so machine gun shoots as soon as player presses shoot button
-    if ((arduboy.justReleased(B_BUTTON)) && (player.gun_type == 1))
+    if ((arduboy.justReleased(B_BUTTON)) && (player.gun_type == MACHINE_GUN))
       player.bullet_itter = player.fire_rate;
         
     // Right
