@@ -951,13 +951,13 @@ void loop() {
 	arduboy.println(player.kills);
     arduboy.print(F("Hit&: "));
     arduboy.print((player.kills * 100) / player.total_shots);
-    arduboy.print(F("%\nDead\nWaves : "));
-	arduboy.println(player.wave - 1);
-    arduboy.print(F("Kills: "));
-	arduboy.println(player.kills);
-    arduboy.print(F("Hit&: "));
-	arduboy.print((player.kills * 100) / player.total_shots);
-    arduboy.print(F("%\n"));
+//    arduboy.print(F("%\nDead\nWaves : "));
+//	arduboy.println(player.wave - 1);
+//    arduboy.print(F("Kills: "));
+//	arduboy.println(player.kills);
+//    arduboy.print(F("Hit&: "));
+//	arduboy.print((player.kills * 100) / player.total_shots);
+//    arduboy.print(F("%\n"));
 
     runMenu(&loseMenu);
     
