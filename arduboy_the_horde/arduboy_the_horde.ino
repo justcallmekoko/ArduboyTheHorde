@@ -351,8 +351,8 @@ void spawnEnemy(int count) {
            (spawn_x < X_MAX) &&
            (spawn_y > Y_MIN) &&
            (spawn_y < Y_MAX)){
-      spawn_x = random(X_MIN - 20, X_MAX + 20);
-      spawn_y = random(Y_MIN - 20, Y_MAX + 20);
+      spawn_x = random(X_MIN - 50, X_MAX + 50);
+      spawn_y = random(Y_MIN - 35, Y_MAX + 35);
     }
   
     test_enemy.x = spawn_x;
