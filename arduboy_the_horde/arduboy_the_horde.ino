@@ -33,7 +33,7 @@ Arduboy2 arduboy;
 #define ENEMY_MIN_SPEED 5 // Lower is faster
 #define ENEMY_MAX_SPEED 4
 
-constexpr char version_number[] PROGMEM = "v0.1";
+constexpr char version_number[] PROGMEM = "v0.2";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -307,6 +307,16 @@ bool checkCollision() {
     if (distance <= circle_width * 2) {
       lose = true;
       mode = 2;
+      Serial.println(F("------------------------------"));
+      Serial.println(F("Player Died:"));
+      Serial.print(F("x: "));
+      Serial.print(player.x);
+      Serial.print(F(" y: "));
+      Serial.print(player.y);
+      Serial.print(F(" k: "));
+      Serial.print(player.kills);
+      Serial.print(F(" s: "));
+      Serial.println(player.total_shots);
     }
   }
 }
@@ -949,8 +959,9 @@ void loop() {
     arduboy.println(player.wave - 1);
     arduboy.print(F("Kills: "));
 	arduboy.println(player.kills);
-    arduboy.print(F("Hit&: "));
-    arduboy.print((player.kills * 100) / player.total_shots);
+    arduboy.print(F("Hit%: "));
+    arduboy.print(((float)player.kills * 100.0) / (float)player.total_shots);
+    arduboy.print(F("%"));
 //    arduboy.print(F("%\nDead\nWaves : "));
 //	arduboy.println(player.wave - 1);
 //    arduboy.print(F("Kills: "));
