@@ -189,8 +189,8 @@ struct Menu {
 
 class Player {
   public:
-    uint8_t x = WIDTH / 2;
-    uint8_t y = HEIGHT / 2;
+    int x = WIDTH / 2;
+    int y = HEIGHT / 2;
     //int mod = 60 / fps;
 
     // Weapon info
@@ -202,10 +202,10 @@ class Player {
      */
     uint8_t gun_type = START_GUN; // Start with this gun
     uint8_t fire_rate = 10; // Lower is faster
-    uint8_t bullet_itter = fire_rate;
+    uint8_t bullet_itter = fire_rate; // Whether or not bullet moves
         
     uint8_t wave = 1;
-    uint8_t total_shots = 0;
+    uint16_t total_shots = 0;
     int kills = 0;
 };
 
@@ -218,9 +218,10 @@ class Powerup {
 
 class Enemy {
   public:
-    uint8_t x = 0;
-    uint8_t y = 0;
-    //bool dead = false;
+    uint16_t id = 0;
+    int x = 0;
+    int y = 0;
+    bool dead = false;
 
     uint8_t mov_itter = 0;
     uint8_t ENEMY_SPEED = 0;
@@ -299,7 +300,11 @@ bool checkCollision() {
     
     // Check if distance is less than the radius of the player plus the radius of the enemy
     // Player dies if enemy circle touches player circle
-    if (distance <= circle_width * 2) {
+    if (distance <= (float)circle_width * 2.0) {
+      Serial.println("---------------------");
+      Serial.println("Player Died:");
+      Serial.println("Player x: " + (String)player.x + " y: " + (String)player.y);
+      Serial.println(" Enemy x: " + (String)enemies[i].x + " y: " + (String)enemies[i].y + " id: " + (String)enemies[i].id);
       lose = true;
       mode = 2;
     }
@@ -331,6 +336,7 @@ void runExplosions() {
 
       // Check if enemy in explosion radius
       if (distance <= explosions[i].r + circle_width) {
+        enemies[z].dead = true;
         enemies.removeAt(z);
         player.kills++;
       }
@@ -359,10 +365,12 @@ void spawnEnemy(int count) {
     test_enemy.y = spawn_y;
   
     test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
+
+    test_enemy.id = random(0, 65535);
   
     //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
-    Serial.println("Spawning enemy -> x: " + (String)test_enemy.x + " y: " + (String)test_enemy.y);
+    Serial.println("Spawning enemy -> x: " + (String)test_enemy.x + " y: " + (String)test_enemy.y + " id: " + (String)test_enemy.id);
   
     enemies.add(test_enemy);
   }
@@ -426,35 +434,36 @@ void runPowerups() {
 void runEnemies() {
   //for (int i = 0; i < enemies.size(); i++) {
   for (int i = 0; i < enemies.getCount(); i++) {
-    //if (!enemies[i].dead) {
-    Enemy enemy;
-    enemy.mov_itter = enemies[i].mov_itter + 1;
-    enemy.x = enemies[i].x;
-    enemy.y = enemies[i].y;
-    enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
-
-    // Check if time for enemy to move
-    if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
-      enemy.mov_itter = 0;
-
-      // Move enemy closer to player
-      if (enemy.x < player.x)
-        enemy.x++;
-      if (enemy.x > player.x)
-        enemy.x--;
-
-      if (enemy.y < player.y)
-        enemy.y++;
-      if (enemy.y > player.y)
-        enemy.y--;
-
+    if (!enemies[i].dead) {
+      Enemy enemy;
+      enemy.mov_itter = enemies[i].mov_itter + 1;
+      enemy.x = enemies[i].x;
+      enemy.y = enemies[i].y;
+      enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
+      enemy.id = enemies[i].id;
+  
+      // Check if time for enemy to move
+      if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
+        enemy.mov_itter = 0;
+  
+        // Move enemy closer to player
+        if (enemy.x < player.x)
+          enemy.x++;
+        if (enemy.x > player.x)
+          enemy.x--;
+  
+        if (enemy.y < player.y)
+          enemy.y++;
+        if (enemy.y > player.y)
+          enemy.y--;
+  
+      }
+  
+      enemies[i] = enemy;
+      
+      arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width, WHITE);
+      arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width - 1, WHITE);
     }
-
-    enemies[i] = enemy;
-    
-    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width, WHITE);
-    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width - 1, WHITE);
-    //}
   }
 }
 
@@ -526,7 +535,7 @@ void runShots() {
         //bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
         bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
         shots.removeAt(i);
-        //enemies[z].dead = true;
+        enemies[z].dead = true;
         enemies.removeAt(z);
         //Serial.println("Enemies remaining: " + (String)enemies.size());
         player.kills++;
