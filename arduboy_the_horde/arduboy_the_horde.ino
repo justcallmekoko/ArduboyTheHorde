@@ -192,8 +192,8 @@ struct Menu {
 
 class Player {
   public:
-    uint8_t x = WIDTH / 2;
-    uint8_t y = HEIGHT / 2;
+    int x = WIDTH / 2;
+    int y = HEIGHT / 2;
     //int mod = 60 / fps;
 
     // Weapon info
@@ -208,7 +208,7 @@ class Player {
     uint8_t bullet_itter = fire_rate;
         
     uint8_t wave = 1;
-    uint8_t total_shots = 0;
+    int total_shots = 0;
     int kills = 0;
 };
 
@@ -221,8 +221,8 @@ class Powerup {
 
 class Enemy {
   public:
-    uint8_t x = 0;
-    uint8_t y = 0;
+    int x = 0;
+    int y = 0;
     //bool dead = false;
 
     uint8_t mov_itter = 0;
