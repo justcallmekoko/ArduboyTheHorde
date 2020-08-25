@@ -30,10 +30,12 @@ Arduboy2 arduboy;
 
 #define SPAWN_LIMIT 15 // Stable with 10. Testing with 15
 #define BULLET_SPEED 4 // Higher is faster
-#define ENEMY_MIN_SPEED 5 // Lower is faster
-#define ENEMY_MAX_SPEED 4
+//#define ENEMY_MIN_SPEED 5 // Lower is faster
+//#define ENEMY_MAX_SPEED 4
+#define ENEMY_MIN_SPEED 3
+#define ENEMY_MAX_SPEED 5
 
-constexpr char version_number[] PROGMEM = "v0.2";
+constexpr char version_number[] PROGMEM = "v0.3";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -221,12 +223,12 @@ class Powerup {
 
 class Enemy {
   public:
-    int x = 0;
-    int y = 0;
+    float x = 0;
+    float y = 0;
     //bool dead = false;
 
     uint8_t mov_itter = 0;
-    uint8_t ENEMY_SPEED = 0;
+    float ENEMY_SPEED = 0;
 };
 
 class Shot {
@@ -373,7 +375,8 @@ void spawnEnemy(int count) {
     test_enemy.x = spawn_x;
     test_enemy.y = spawn_y;
   
-    test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
+    //test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
+    test_enemy.ENEMY_SPEED = (float)random(ENEMY_MIN_SPEED, ENEMY_MAX_SPEED) / 10.0;
   
     //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
@@ -446,27 +449,13 @@ void runEnemies() {
   for (int i = 0; i < enemies.getCount(); i++) {
     //if (!enemies[i].dead) {
     Enemy enemy;
-    enemy.mov_itter = enemies[i].mov_itter + 1;
-    enemy.x = enemies[i].x;
-    enemy.y = enemies[i].y;
+
+    // This allows enemies to attack players in a straight line
+    float d = sqrt(sq(player.x - enemies[i].x) + sq(player.y - enemies[i].y));
+    enemy.x = enemies[i].x + (enemies[i].ENEMY_SPEED / d) * (player.x - enemies[i].x);
+    enemy.y = enemies[i].y + (enemies[i].ENEMY_SPEED / d) * (player.y - enemies[i].y);
+    
     enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
-
-    // Check if time for enemy to move
-    if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
-      enemy.mov_itter = 0;
-
-      // Move enemy closer to player
-      if (enemy.x < player.x)
-        enemy.x++;
-      if (enemy.x > player.x)
-        enemy.x--;
-
-      if (enemy.y < player.y)
-        enemy.y++;
-      if (enemy.y > player.y)
-        enemy.y--;
-
-    }
 
     enemies[i] = enemy;
     
