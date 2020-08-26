@@ -360,16 +360,16 @@ void spawnEnemy(int count) {
   for (int i = 0; i < count; i++) {
     Enemy test_enemy;
   
-    int spawn_x = player.x;
-    int spawn_y = player.y;
+    float spawn_x = player.x;
+    float spawn_y = player.y;
   
     // Only spawn enemies off screen
     while ((spawn_x > X_MIN) &&
            (spawn_x < X_MAX) &&
            (spawn_y > Y_MIN) &&
            (spawn_y < Y_MAX)){
-      spawn_x = random(X_MIN - 50, X_MAX + 50);
-      spawn_y = random(Y_MIN - 50, Y_MAX + 50);
+      spawn_x = (float)random(X_MIN - 50, X_MAX + 50);
+      spawn_y = (float)random(Y_MIN - 50, Y_MAX + 50);
     }
   
     test_enemy.x = spawn_x;
