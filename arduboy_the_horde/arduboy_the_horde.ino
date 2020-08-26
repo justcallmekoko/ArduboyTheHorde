@@ -692,25 +692,15 @@ void matchShot(int x, int y, int xmod, int ymod, int effect) {
     shot2.y = shot.y;
     shot2.effect = shot.effect;
 
-    if ((shot.x_mod > 0) && (shot.y_mod == 0)) {// Right
+    if (((shot.x_mod > 0) && (shot.y_mod == 0)) || // Right
+        ((shot.x_mod < 0) && (shot.y_mod == 0))) { // Left
       shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
       shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
       shot1.y_mod = shot.y_mod + shotSpread(20, 91);
       shot2.y_mod = shot.y_mod - shotSpread(20, 91);
     }
-    else if ((shot.x_mod < 0) && (shot.y_mod == 0)) {// Left
-      shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
-      shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
-      shot1.y_mod = shot.y_mod + shotSpread(20, 91);
-      shot2.y_mod = shot.y_mod - shotSpread(20, 91);
-    }
-    else if ((shot.x_mod == 0) && (shot.y_mod < 0)) {// Up
-      shot1.x_mod = shot.x_mod + shotSpread(20, 91);
-      shot2.x_mod = shot.x_mod - shotSpread(20, 91);
-      shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
-      shot2.y_mod = shot.y_mod + shotSpread(-40, 40);
-    }
-    else if ((shot.x_mod == 0) && (shot.y_mod > 0)) {// Down
+    else if (((shot.x_mod == 0) && (shot.y_mod < 0)) || // Up
+               ((shot.x_mod == 0) && (shot.y_mod > 0))) { // Down
       shot1.x_mod = shot.x_mod + shotSpread(20, 91);
       shot2.x_mod = shot.x_mod - shotSpread(20, 91);
       shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
