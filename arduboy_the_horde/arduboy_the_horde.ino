@@ -1,5 +1,7 @@
 #include <Arduboy2.h>
 #include "List.h"
+#include "Size.h"
+#include "FlashStringHelper.h"
 
 Arduboy2 arduboy;
 
@@ -28,10 +30,12 @@ Arduboy2 arduboy;
 
 #define SPAWN_LIMIT 15 // Stable with 10. Testing with 15
 #define BULLET_SPEED 4 // Higher is faster
-#define ENEMY_MIN_SPEED 5 // Lower is faster
-#define ENEMY_MAX_SPEED 4
+//#define ENEMY_MIN_SPEED 5 // Lower is faster
+//#define ENEMY_MAX_SPEED 4
+#define ENEMY_MIN_SPEED 3
+#define ENEMY_MAX_SPEED 5
 
-String version_number = "v0.1";
+constexpr char version_number[] PROGMEM = "v0.3";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -177,7 +181,8 @@ uint8_t mode = 0;
 //struct Menu;
 
 struct MenuNode {
-  String name;
+  FlashStringHelper name;
+  uint8_t length;
   uint8_t mode;
 };
 
@@ -205,7 +210,7 @@ class Player {
     uint8_t bullet_itter = fire_rate; // Whether or not bullet moves
         
     uint8_t wave = 1;
-    uint16_t total_shots = 0;
+    int total_shots = 0;
     int kills = 0;
 };
 
@@ -218,13 +223,12 @@ class Powerup {
 
 class Enemy {
   public:
-    uint16_t id = 0;
-    int x = 0;
-    int y = 0;
-    bool dead = false;
+    float x = 0;
+    float y = 0;
+    //bool dead = false;
 
     uint8_t mov_itter = 0;
-    uint8_t ENEMY_SPEED = 0;
+    float ENEMY_SPEED = 0;
 };
 
 class Shot {
@@ -278,10 +282,12 @@ void drawStatusBar() {
   
   // Draw status bar text
   arduboy.setCursor(1, 1);
-  arduboy.print("W: " + (String)(player.wave - 1));
+  arduboy.print(F("W: "));
+  arduboy.print(player.wave - 1);
   
   arduboy.setCursor(58, 1);
-  arduboy.print("K: " + (String)player.kills);
+  arduboy.print(F("K: "));
+  arduboy.print(player.kills);
   
   // Return text param to normal
   arduboy.setTextSize(current_text_size);
@@ -307,6 +313,16 @@ bool checkCollision() {
       Serial.println(" Enemy x: " + (String)enemies[i].x + " y: " + (String)enemies[i].y + " id: " + (String)enemies[i].id);
       lose = true;
       mode = 2;
+      Serial.println(F("------------------------------"));
+      Serial.println(F("Player Died:"));
+      Serial.print(F("x: "));
+      Serial.print(player.x);
+      Serial.print(F(" y: "));
+      Serial.print(player.y);
+      Serial.print(F(" k: "));
+      Serial.print(player.kills);
+      Serial.print(F(" s: "));
+      Serial.println(player.total_shots);
     }
   }
 }
@@ -349,28 +365,30 @@ void spawnEnemy(int count) {
   for (int i = 0; i < count; i++) {
     Enemy test_enemy;
   
-    int spawn_x = player.x;
-    int spawn_y = player.y;
+    float spawn_x = player.x;
+    float spawn_y = player.y;
   
     // Only spawn enemies off screen
     while ((spawn_x > X_MIN) &&
            (spawn_x < X_MAX) &&
            (spawn_y > Y_MIN) &&
            (spawn_y < Y_MAX)){
-      spawn_x = random(X_MIN - 50, X_MAX + 50);
-      spawn_y = random(Y_MIN - 35, Y_MAX + 35);
+      spawn_x = (float)random(X_MIN - 50, X_MAX + 50);
+      spawn_y = (float)random(Y_MIN - 50, Y_MAX + 50);
     }
   
     test_enemy.x = spawn_x;
     test_enemy.y = spawn_y;
   
-    test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
-
-    test_enemy.id = random(0, 65535);
+    //test_enemy.ENEMY_SPEED = random(ENEMY_MAX_SPEED - 1, ENEMY_MIN_SPEED + 1);
+    test_enemy.ENEMY_SPEED = (float)random(ENEMY_MIN_SPEED, ENEMY_MAX_SPEED) / 10.0;
   
     //Serial.println("Generating enemy w/ speed: " + (String)test_enemy.ENEMY_SPEED);
 
-    Serial.println("Spawning enemy -> x: " + (String)test_enemy.x + " y: " + (String)test_enemy.y + " id: " + (String)test_enemy.id);
+    Serial.print(F("Spawning enemy -> x: "));
+	Serial.print(test_enemy.x);
+	Serial.print(F(" y: "));
+	Serial.println(test_enemy.y);
   
     enemies.add(test_enemy);
   }
@@ -434,36 +452,21 @@ void runPowerups() {
 void runEnemies() {
   //for (int i = 0; i < enemies.size(); i++) {
   for (int i = 0; i < enemies.getCount(); i++) {
-    if (!enemies[i].dead) {
-      Enemy enemy;
-      enemy.mov_itter = enemies[i].mov_itter + 1;
-      enemy.x = enemies[i].x;
-      enemy.y = enemies[i].y;
-      enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
-      enemy.id = enemies[i].id;
-  
-      // Check if time for enemy to move
-      if (enemy.mov_itter >= enemy.ENEMY_SPEED) {
-        enemy.mov_itter = 0;
-  
-        // Move enemy closer to player
-        if (enemy.x < player.x)
-          enemy.x++;
-        if (enemy.x > player.x)
-          enemy.x--;
-  
-        if (enemy.y < player.y)
-          enemy.y++;
-        if (enemy.y > player.y)
-          enemy.y--;
-  
-      }
-  
-      enemies[i] = enemy;
-      
-      arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width, WHITE);
-      arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width - 1, WHITE);
-    }
+    //if (!enemies[i].dead) {
+    Enemy enemy;
+
+    // This allows enemies to attack players in a straight line
+    float d = sqrt(sq(player.x - enemies[i].x) + sq(player.y - enemies[i].y));
+    enemy.x = enemies[i].x + (enemies[i].ENEMY_SPEED / d) * (player.x - enemies[i].x);
+    enemy.y = enemies[i].y + (enemies[i].ENEMY_SPEED / d) * (player.y - enemies[i].y);
+    
+    enemy.ENEMY_SPEED = enemies[i].ENEMY_SPEED;
+
+    enemies[i] = enemy;
+    
+    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width, WHITE);
+    arduboy.drawCircle(enemies[i].x, enemies[i].y, circle_width - 1, WHITE);
+    //}
   }
 }
 
@@ -577,9 +580,9 @@ void restartGame() {
 }
 
 // Function to add MenuNodes to a menu
-void addNodes(Menu * menu, String name, int mode)
+template<size_t size> void addNodes(Menu & menu, const char (& name)[size], uint8_t mode)
 {
-  menu->list.add(MenuNode{name, mode});
+  menu.list.add({ asFlashStringHelper(name), (size - 1), mode });
 }
 
 void runMenu(Menu * menu, bool inverted = false) {
@@ -587,7 +590,7 @@ void runMenu(Menu * menu, bool inverted = false) {
   for (int i = 0; i < menu->list.getCount(); i++) {
 
     // Format text to be printed on screen
-    int num_chars = menu->list[i].name.length();
+    int num_chars = menu->list[i].length;
     //int x = (WIDTH / 2) - (num_chars * CHAR_WIDTH / 2);
     int x = WIDTH - (num_chars * CHAR_WIDTH) - 5;
     int y = (HEIGHT / 2) - (CHAR_HEIGHT / 2);
@@ -694,25 +697,15 @@ void matchShot(int x, int y, int xmod, int ymod, int effect) {
     shot2.y = shot.y;
     shot2.effect = shot.effect;
 
-    if ((shot.x_mod > 0) && (shot.y_mod == 0)) {// Right
+    if (((shot.x_mod > 0) && (shot.y_mod == 0)) || // Right
+        ((shot.x_mod < 0) && (shot.y_mod == 0))) { // Left
       shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
       shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
       shot1.y_mod = shot.y_mod + shotSpread(20, 91);
       shot2.y_mod = shot.y_mod - shotSpread(20, 91);
     }
-    else if ((shot.x_mod < 0) && (shot.y_mod == 0)) {// Left
-      shot1.x_mod = shot.x_mod + shotSpread(-40, 40);
-      shot2.x_mod = shot.x_mod + shotSpread(-40, 40);
-      shot1.y_mod = shot.y_mod + shotSpread(20, 91);
-      shot2.y_mod = shot.y_mod - shotSpread(20, 91);
-    }
-    else if ((shot.x_mod == 0) && (shot.y_mod < 0)) {// Up
-      shot1.x_mod = shot.x_mod + shotSpread(20, 91);
-      shot2.x_mod = shot.x_mod - shotSpread(20, 91);
-      shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
-      shot2.y_mod = shot.y_mod + shotSpread(-40, 40);
-    }
-    else if ((shot.x_mod == 0) && (shot.y_mod > 0)) {// Down
+    else if (((shot.x_mod == 0) && (shot.y_mod < 0)) || // Up
+               ((shot.x_mod == 0) && (shot.y_mod > 0))) { // Down
       shot1.x_mod = shot.x_mod + shotSpread(20, 91);
       shot2.x_mod = shot.x_mod - shotSpread(20, 91);
       shot1.y_mod = shot.y_mod + shotSpread(-40, 40);
@@ -732,6 +725,11 @@ void matchShot(int x, int y, int xmod, int ymod, int effect) {
   shots.add(shot);
 }
 
+constexpr char startText[] PROGMEM = "Start";
+constexpr char sfxText[] PROGMEM = "SFX";
+constexpr char playAgainText[] PROGMEM = "Play Again";
+constexpr char mainMenuText[] PROGMEM = "Main Menu";
+
 void setup() {
   arduboy.begin();
   Serial.begin(115200);
@@ -743,11 +741,11 @@ void setup() {
   //loseMenu.list = new List<MenuNode, 128>();
 
   // Populate menus with menu options
-  addNodes(&mainMenu, "Start", 4);
-  //addNodes(&mainMenu, "SFX", 3);
+  addNodes(mainMenu, startText, 4);
+  //addNodes(&mainMenu, sfxText, 3);
 
-  addNodes(&loseMenu, "Play Again", 4);
-  addNodes(&loseMenu, "Main Menu", 0);
+  addNodes(loseMenu, playAgainText, 4);
+  addNodes(loseMenu, mainMenuText, 0);
   
   arduboy.initRandomSeed();
   arduboy.setFrameRate(fps);
@@ -780,8 +778,8 @@ void loop() {
     arduboy.drawSlowXYBitmap(81,0,output_map1,48,31,1);
     arduboy.setTextColor(BLACK);
     arduboy.setTextBackground(WHITE);
-    arduboy.setCursor(X_MAX - (CHAR_WIDTH * version_number.length()), 31);
-    arduboy.print(version_number);
+    arduboy.setCursor(X_MAX - (CHAR_WIDTH * (getSize(version_number) - 1)), 31);
+    arduboy.print(asFlashStringHelper(version_number));
     arduboy.setTextColor(current_text_color);
     arduboy.setTextBackground(current_background);
     runMenu(&mainMenu, true);
@@ -941,9 +939,20 @@ void loop() {
     arduboy.clear();
 
     //arduboy.println("You Died");
-    arduboy.println("Dead\nWaves : " + (String)(player.wave - 1) +
-                    "\nKills: " + (String)player.kills +
-                    "\nHit&: " + (String)((player.kills * 100) / player.total_shots) + "%");
+    arduboy.print(F("Dead\nWaves : "));
+    arduboy.println(player.wave - 1);
+    arduboy.print(F("Kills: "));
+	arduboy.println(player.kills);
+    arduboy.print(F("Hit%: "));
+    arduboy.print(((float)player.kills * 100.0) / (float)player.total_shots);
+    arduboy.print(F("%"));
+//    arduboy.print(F("%\nDead\nWaves : "));
+//	arduboy.println(player.wave - 1);
+//    arduboy.print(F("Kills: "));
+//	arduboy.println(player.kills);
+//    arduboy.print(F("Hit&: "));
+//	arduboy.print((player.kills * 100) / player.total_shots);
+//    arduboy.print(F("%\n"));
 
     runMenu(&loseMenu);
     
