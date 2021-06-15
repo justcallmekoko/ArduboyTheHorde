@@ -29,7 +29,7 @@ Arduboy2 arduboy;
 //#define Y_MIN (circle_width + 1)
 
 #define SPAWN_LIMIT 15 // Stable with 10. Testing with 15
-#define BULLET_SPEED 4 // Higher is faster
+#define BULLET_SPEED 4.0 // Higher is faster
 //#define ENEMY_MIN_SPEED 5 // Lower is faster
 //#define ENEMY_MAX_SPEED 4
 #define ENEMY_MIN_SPEED 3
@@ -310,7 +310,7 @@ bool checkCollision() {
       Serial.println("---------------------");
       Serial.println("Player Died:");
       Serial.println("Player x: " + (String)player.x + " y: " + (String)player.y);
-      Serial.println(" Enemy x: " + (String)enemies[i].x + " y: " + (String)enemies[i].y + " id: " + (String)enemies[i].id);
+      //Serial.println(" Enemy x: " + (String)enemies[i].x + " y: " + (String)enemies[i].y + " id: " + (String)enemies[i].id);
       lose = true;
       mode = 2;
       Serial.println(F("------------------------------"));
@@ -352,7 +352,7 @@ void runExplosions() {
 
       // Check if enemy in explosion radius
       if (distance <= explosions[i].r + circle_width) {
-        enemies[z].dead = true;
+        //enemies[z].dead = true;
         enemies.removeAt(z);
         player.kills++;
       }
@@ -538,7 +538,7 @@ void runShots() {
         //bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
         bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
         shots.removeAt(i);
-        enemies[z].dead = true;
+        //enemies[z].dead = true;
         enemies.removeAt(z);
         //Serial.println("Enemies remaining: " + (String)enemies.size());
         player.kills++;
@@ -662,7 +662,7 @@ float shotSpread(float lower, float upper) {
 }
 
 //void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
-void matchShot(int x, int y, int xmod, int ymod, int effect) {
+void matchShot(float x, float y, float xmod, float ymod, uint8_t effect) {
   //Serial.println("Creating shot with effect: " + (String)effect);
   Shot shot;
   shot.x = x;
@@ -808,60 +808,36 @@ void loop() {
         Shot shot;
         
         if (dir == 0) { // Right
+          Serial.println("matchShot: Right");
           matchShot(player.x, player.y, BULLET_SPEED, 0, player.gun_type); // This
-          /*
-          matchShot(player.x, player.y, BULLET_SPEED, 0);
-          matchShot(player.x, player.y, -BULLET_SPEED, 0);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, -BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, -BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
-          */
         }
         else if (dir == 2) { // Left
+          Serial.println("matchShot: Left");
           matchShot(player.x, player.y, -BULLET_SPEED, 0, player.gun_type); // This
-          /*
-          matchShot(player.x, player.y, BULLET_SPEED, 0);
-          matchShot(player.x, player.y, -BULLET_SPEED, 0);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, -BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, -BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
-          */
         }
         else if (dir == 3) { // Up
+          Serial.println("matchShot: Up");
           matchShot(player.x, player.y, 0, -BULLET_SPEED, player.gun_type); // This
-          /*
-          matchShot(player.x, player.y, BULLET_SPEED, 0);
-          matchShot(player.x, player.y, -BULLET_SPEED, 0);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, -BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, -BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
-          */
         }
         else if (dir == 1) { // Down
+          Serial.println("matchShot: Down");
           matchShot(player.x, player.y, 0, BULLET_SPEED, player.gun_type); // This
-          /*
-          matchShot(player.x, player.y, BULLET_SPEED, 0);
-          matchShot(player.x, player.y, -BULLET_SPEED, 0);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, BULLET_SPEED);
-          matchShot(player.x, player.y, 0, -BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, BULLET_SPEED);
-          matchShot(player.x, player.y, BULLET_SPEED, -BULLET_SPEED);
-          matchShot(player.x, player.y, -BULLET_SPEED, -BULLET_SPEED);
-          */
+        }
+        else if (dir == 4) { // Right and Up
+          Serial.println("matchShot: Right and Up");
+          matchShot(player.x, player.y, (BULLET_SPEED * 0.707), (-BULLET_SPEED * 0.707), player.gun_type);
+        }
+        else if (dir == 5) { // Right and Down
+          Serial.println("matchShot: Right and Down");
+          matchShot(player.x, player.y, (BULLET_SPEED * 0.707), (BULLET_SPEED * 0.707), player.gun_type);
+        }
+        else if (dir == 6) { // Left and Up
+          Serial.println("matchShot: Left and Up");
+          matchShot(player.x, player.y, (-BULLET_SPEED * 0.707), (-BULLET_SPEED * 0.707), player.gun_type);
+        }
+        else if (dir == 7) { // Left and Down
+          Serial.println("matchShot: Left and Down");
+          matchShot(player.x, player.y, (-BULLET_SPEED * 0.707), (BULLET_SPEED * 0.707), player.gun_type);
         }
       }
     } // End shoot
@@ -870,41 +846,111 @@ void loop() {
     // Need this so machine gun shoots as soon as player presses shoot button
     if ((arduboy.justReleased(B_BUTTON)) && (player.gun_type == MACHINE_GUN))
       player.bullet_itter = player.fire_rate;
+
+
+    //////// Right and right-ish directions
+    // Right and Up
+    if (((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX)) && ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN))) {
+      dir = 4; // Right and Up
+
+      // Right movement
+      if (player.x + (1 * 1) < X_MAX)
+        player.x = player.x + (1 * 1);
+      else
+        player.x++;
+
+      // Up movement
+      if (player.y - (1 * 1) > Y_MIN)
+        player.y = player.y - (1 * 1);
+      else
+        player.y--;
+      
+    }
+    // Right and Down
+    else if  (((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX)) && ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX))) {
+      dir = 5; // Right and Down
+
+      // Right movement
+      if (player.x + (1 * 1) < X_MAX)
+        player.x = player.x + (1 * 1);
+      else
+        player.x++;
+
+      // Down movement
+      if (player.y + (1 * 1) < Y_MAX)
+        player.y = player.y + (1 * 1);
+      else
+        player.y++;
         
+    }
     // Right
-    if ((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX)) {
+    else if ((arduboy.pressed(RIGHT_BUTTON)) && (player.x < X_MAX)) {
       dir = 0; // Right
       if (player.x + (1 * 1) < X_MAX)
         player.x = player.x + (1 * 1);
       else
         player.x++;
     }
-  
+
+    //////// Left and Left-ish directions
+    // Left and Up
+    else if (((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN)) && ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN))) {
+      dir = 6; // Left and Up
+
+      // Left movement
+      if (player.x - (1 * 1) > X_MIN)
+        player.x = player.x - (1 * 1);
+      else
+        player.x--;
+
+      // Up movement
+      if (player.y - (1 * 1) > Y_MIN)
+        player.y = player.y - (1 * 1);
+      else
+        player.y--;
+    }
+    // Left and Down
+    else if (((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN)) && ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX))) {
+      dir = 7; // Left and Down
+
+      // Left movement
+      if (player.x - (1 * 1) > X_MIN)
+        player.x = player.x - (1 * 1);
+      else
+        player.x--;
+
+      // Down movement
+      if (player.y + (1 * 1) < Y_MAX)
+        player.y = player.y + (1 * 1);
+      else
+        player.y++;
+      
+    }
     // Left
-    if ((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN)) {
+    else if ((arduboy.pressed(LEFT_BUTTON)) && (player.x > X_MIN)) {
       dir = 2; // Left
       if (player.x - (1 * 1) > X_MIN)
         player.x = player.x - (1 * 1);
       else
         player.x--;
     }
-  
-    // UP
-    if ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN)) {
-      dir = 3; // Up
-      if (player.y - (1 * 1) > Y_MIN)
-        player.y = player.y - (1 * 1);
-      else
-        player.y--;
-    }
-  
+
+    //////// Up and Down
     // Down
-    if ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX)) {
+    else if ((arduboy.pressed(DOWN_BUTTON)) && (player.y < Y_MAX)) {
       dir = 1; // Down
       if (player.y + (1 * 1) < Y_MAX)
         player.y = player.y + (1 * 1);
       else
         player.y++;
+    }
+    // Up
+    else if ((arduboy.pressed(UP_BUTTON)) && (player.y > Y_MIN)) {
+      dir = 3; // Up
+      if (player.y - (1 * 1) > Y_MIN)
+        player.y = player.y - (1 * 1);
+      else
+        player.y--;
     }
   
     // Create new wave if all enemies defeated
