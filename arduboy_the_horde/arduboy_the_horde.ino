@@ -5,13 +5,19 @@
 
 Arduboy2 arduboy;
 
-#define NUM_WEAPONS 5
+#define NUM_WEAPONS 8
 
 #define PISTOL 0
 #define MACHINE_GUN 1
 #define SHOTGUN 2
 #define RPG 3
 #define NUKE 4
+#define GRENADE_1 5
+#define GRENADE_2 6
+#define GRENADE_3 7
+
+#define MAX_GRENADES 255
+#define MAX_ACTIVE_GRENADES 3
 
 #define START_GUN PISTOL // Gun to start game with
 #define SPREAD 0.4
@@ -35,7 +41,7 @@ Arduboy2 arduboy;
 #define ENEMY_MIN_SPEED 3
 #define ENEMY_MAX_SPEED 5
 
-constexpr char version_number[] PROGMEM = "v0.3";
+constexpr char version_number[] PROGMEM = "v0.4";
 
 PROGMEM const unsigned char output_map1[] = {
 0xFF, 0xF1, 0xFF, 0xFF, 0xFF, 0xFC, 0x80, 0x19, 
@@ -169,6 +175,7 @@ int menu_index = 0;
 uint8_t queue = 0;
 uint8_t current_text_color = WHITE;
 uint8_t current_background = BLACK;
+uint32_t global_timer;
 
 // Run modes
 // 0 - Menu
@@ -208,7 +215,8 @@ class Player {
     uint8_t gun_type = START_GUN; // Start with this gun
     uint8_t fire_rate = 10; // Lower is faster
     uint8_t bullet_itter = fire_rate; // Whether or not bullet moves
-        
+
+    uint8_t grenades = 10;
     uint8_t wave = 1;
     int total_shots = 0;
     int kills = 0;
@@ -240,6 +248,7 @@ class Shot {
     uint8_t effect = 0;
     //int range = -1;
     uint8_t bsize = 0;
+    int tmr = 3000;
 };
 
 class Explosion {
@@ -285,9 +294,13 @@ void drawStatusBar() {
   arduboy.print(F("W: "));
   arduboy.print(player.wave - 1);
   
-  arduboy.setCursor(58, 1);
+  arduboy.setCursor(38, 1);
   arduboy.print(F("K: "));
   arduboy.print(player.kills);
+
+  arduboy.setCursor(78, 1);
+  arduboy.print(F("G: "));
+  arduboy.print(player.grenades);
   
   // Return text param to normal
   arduboy.setTextSize(current_text_size);
@@ -427,16 +440,24 @@ void runPowerups() {
     // Get distance between player and powerup
     float distance = sqrt(sq(player.x - powerups[i].x) + sq(player.y - powerups[i].y));
 
+    // Player hits powerup
     if (distance <= circle_width * 2) {
-      if (powerups[i].type != NUKE)
+      if ((powerups[i].type != NUKE) &&
+          (powerups[i].type != GRENADE_1) &&
+          (powerups[i].type != GRENADE_2) &&
+          (powerups[i].type != GRENADE_3))
         player.gun_type = powerups[i].type;
-      else {
+      else if (powerups[i].type == NUKE) {
         Explosion explosion;
         explosion.x = player.x;
         explosion.y = player.y;
         explosion.r = 0;
         explosion.lim = 100;
         explosions.add(explosion);
+      }
+      else {
+        if (player.grenades < MAX_GRENADES)
+          player.grenades = player.grenades + 1;
       }
         
       powerups.removeAt(i);
@@ -479,6 +500,8 @@ void generatePowerup(int x, int y) {
       (y > Y_MIN) &&
       (y < Y_MAX) &&
       (player.gun_type != NUM_WEAPONS)) {
+
+    // Chance to get powerup
     int chance = random(0, 10);
     //Serial.println("Chance for powerup: " + (String)chance);
     if (chance == 0) {
@@ -497,6 +520,8 @@ void generatePowerup(int x, int y) {
 
 // Function to move shots and check shot collision
 void runShots() {
+  uint8_t time_diff = millis() - global_timer;
+  
   for (int i = 0; i < shots.getCount(); i++) {
     
     // Move coordinates based on direction
@@ -508,6 +533,7 @@ void runShots() {
     shot.effect = shots[i].effect;
     //shot.range = shots[i].range - 1;
     shot.bsize = shots[i].bsize;
+    shot.tmr = shots[i].tmr - time_diff;
 
     shots[i] = shot;
 
@@ -526,30 +552,40 @@ void runShots() {
 
     // Check enemies
     //for (int z = 0; z < enemies.size(); z++) {
-    for (int z = 0; z < enemies.getCount(); z++) {
-      
-      // Enemy hit if true
-      if ((shots[i].x >= enemies[z].x - circle_width) && 
-          (shots[i].x <= enemies[z].x + circle_width) &&
-          (shots[i].y >= enemies[z].y - circle_width) &&
-          (shots[i].y <= enemies[z].y + circle_width)) {
-        //generatePowerup(enemies[z].x, enemies[z].y);
-        generatePowerup(enemies[z].x, enemies[z].y);
-        //bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
-        bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
+    if (shots[i].effect != GRENADE_1) {
+      for (int z = 0; z < enemies.getCount(); z++) {
+        
+        // Enemy hit if true
+        if ((shots[i].x >= enemies[z].x - circle_width) && 
+            (shots[i].x <= enemies[z].x + circle_width) &&
+            (shots[i].y >= enemies[z].y - circle_width) &&
+            (shots[i].y <= enemies[z].y + circle_width)) {
+          //generatePowerup(enemies[z].x, enemies[z].y);
+          generatePowerup(enemies[z].x, enemies[z].y);
+          //bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
+          bulletEffect(shots[i].effect, shots[i].x, shots[i].y);
+          shots.removeAt(i);
+          //enemies[z].dead = true;
+          enemies.removeAt(z);
+          //Serial.println("Enemies remaining: " + (String)enemies.size());
+          player.kills++;
+  
+          if (shots.isEmpty())
+            break;
+            
+          continue;
+        }
+      }
+    }
+    // We are dealing with a grenade
+    if (shots[i].effect == GRENADE_1) {
+      if (shots[i].tmr <= 0) {
+        bulletEffect(RPG, shots[i].x, shots[i].y);
         shots.removeAt(i);
-        //enemies[z].dead = true;
-        enemies.removeAt(z);
-        //Serial.println("Enemies remaining: " + (String)enemies.size());
-        player.kills++;
-
-        if (shots.isEmpty())
-          break;
-          
-        continue;
       }
     }
   }
+  global_timer = millis();
 }
 
 // Reset game values
@@ -568,6 +604,7 @@ void restartGame() {
   player.wave = 1;
   player.total_shots = 0;
   player.kills = 0;
+  player.grenades = 0;
 
   player.gun_type = START_GUN;
   
@@ -661,6 +698,7 @@ float shotSpread(float lower, float upper) {
   return (float)(random(lower, upper) / 100.0);
 }
 
+
 //void matchShot(int x, int y, int xmod, int ymod, int effect, int range) {
 void matchShot(float x, float y, float xmod, float ymod, uint8_t effect) {
   //Serial.println("Creating shot with effect: " + (String)effect);
@@ -681,7 +719,10 @@ void matchShot(float x, float y, float xmod, float ymod, uint8_t effect) {
   // Transfer effect
   shot.effect = effect;
 
-  if (shot.effect == RPG)
+  if ((shot.effect == RPG) ||
+      (shot.effect == GRENADE_1) ||
+      (shot.effect == GRENADE_2) ||
+      (shot.effect == GRENADE_3))
     shot.bsize = 1;
 
   // Shotgun stuff
@@ -752,8 +793,12 @@ void setup() {
   //arduboy.drawCircle(player.x, player.y, circle_width, WHITE);
   arduboy.display();
 
+  global_timer = millis();
+
   generateWave();
 }
+
+uint8_t active_nades = 0;
 
 void loop() {
   //Serial.println("mode: " + (String)mode +
@@ -787,7 +832,20 @@ void loop() {
 
   // Play game
   else if ((!lose) && (mode == 1)) {
+
+    // Check if grenade button is pressed
+    active_nades = 0;
+    for (uint8_t i = 0; i < shots.getCount(); i++) {
+      if (shots[i].effect == GRENADE_1)
+        active_nades++;
+    }
     
+    if ((arduboy.justPressed(A_BUTTON)) && (player.grenades > 0) && (active_nades < MAX_ACTIVE_GRENADES)) {
+      matchShot(player.x, player.y, 0, 0, GRENADE_1);
+
+      player.grenades--;
+    }
+
     // Shoot
     // Check if shoot button is pressed
     if (((arduboy.justPressed(B_BUTTON)) && (player.gun_type == PISTOL)) || // Pistol
